@@ -8,7 +8,7 @@ defmodule Memoize do
   end
 
   defp compare_and_swap(expected, :nothing) do
-    num_deleted = :ets.select_delete(tab(), [{:"$1", [{:"=:=", expected, :"$1"}], [true]}])
+    num_deleted = :ets.select_delete(tab(), [{expected, [], [true]}])
     num_deleted == 1
   end
 
@@ -69,7 +69,7 @@ defmodule Memoize do
         end
 
       # running
-      [{^key, {:running, runner_pid, waiter_pids} = expected}] ->
+      [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
         waiter_pids = Map.put(waiter_pids, self(), :ignore)
         if compare_and_swap(expected, {key, {:running, runner_pid, waiter_pids}}) do
           ref = Process.monitor(runner_pid)
