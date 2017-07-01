@@ -82,7 +82,7 @@ defmodule Memoize do
             5000 -> :ok
           end
 
-          Process.demonitor(ref)
+          Process.demonitor(ref, [:flush])
           get_or_run(key, fun)
         else
           get_or_run(key, fun)
@@ -97,6 +97,10 @@ defmodule Memoize do
           value
         end
     end
+  end
+
+  def invalidate() do
+    :ets.select_delete(tab(), [{{:"$1", {:completed, :_, :_}}, [], [true]}])
   end
 
   def invalidate(key) do
