@@ -37,4 +37,19 @@ defmodule MemoizeTest do
   test "defmemop defines pri" do
     assert 10 == pri()
   end
+
+  test "invalidates cached values when call invalidate/{0-3}" do
+    f = fn -> 10 end
+
+    Memoize.Cache.invalidate()
+    Memoize.Cache.get_or_run({:mod1, :fun1, [1]}, f)
+    Memoize.Cache.get_or_run({:mod1, :fun1, [2]}, f)
+    Memoize.Cache.get_or_run({:mod1, :fun2, [1]}, f)
+    Memoize.Cache.get_or_run({:mod2, :fun1, [1]}, f)
+
+    assert 1 == Memoize.invalidate(:mod1, :fun1, [1])
+    assert 1 == Memoize.invalidate(:mod1, :fun1)
+    assert 1 == Memoize.invalidate(:mod1)
+    assert 1 == Memoize.invalidate()
+  end
 end

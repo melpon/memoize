@@ -18,8 +18,8 @@ defmodule Memoize.CacheTest do
   test "get_or_run" do
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
-    assert true == Memoize.Cache.invalidate(:key)
-    assert false == Memoize.Cache.invalidate(:key)
+    assert 1 == Memoize.Cache.invalidate(:key)
+    assert 0 == Memoize.Cache.invalidate(:key)
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
   end
 

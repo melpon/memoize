@@ -111,4 +111,17 @@ defmodule Memoize do
                   end)
     end
   end
+
+  def invalidate() do
+    Memoize.Cache.invalidate()
+  end
+  def invalidate(module) do
+    Memoize.Cache.invalidate({module, :_, :_})
+  end
+  def invalidate(module, function) do
+    Memoize.Cache.invalidate({module, function, :_})
+  end
+  def invalidate(module, function, arguments) do
+    Memoize.Cache.invalidate({module, function, arguments})
+  end
 end

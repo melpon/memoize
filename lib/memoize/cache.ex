@@ -106,11 +106,10 @@ defmodule Memoize.Cache do
   end
 
   def invalidate() do
-    :ets.select_delete(tab(), [{{:"$1", {:completed, :_, :_}}, [], [true]}])
+    :ets.select_delete(tab(), [{{:_, {:completed, :_, :_}}, [], [true]}])
   end
 
   def invalidate(key) do
-    num_deleted = :ets.select_delete(tab(), [{{key, {:completed, :_, :_}}, [], [true]}])
-    num_deleted == 1
+    :ets.select_delete(tab(), [{{key, {:completed, :_, :_}}, [], [true]}])
   end
 end
