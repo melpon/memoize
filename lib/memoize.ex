@@ -2,7 +2,7 @@ defmodule Memoize do
 
   defmacro __using__(_) do
     quote do
-      import Memoize, only: [defmemo: 2]
+      import Memoize, only: [defmemo: 2, defmemop: 2]
       @memodefs []
       @before_compile Memoize
     end
@@ -42,6 +42,14 @@ defmodule Memoize do
       end
   """
   defmacro defmemo(call, expr \\ nil) do
+    define(:def, call, expr)
+  end
+
+  defmacro defmemop(call, expr \\ nil) do
+    define(:defp, call, expr)
+  end
+
+  defp define(method, call, expr) do
     {origname, memocall, origdefs} = init_defmemo(call)
     memoname = memoname(origname)
 
@@ -51,8 +59,13 @@ defmodule Memoize do
 
     origdefs = for {call, args} <- origdefs do
                  quote do
-                   def unquote(call) do
-                     Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end)
+                   case unquote(method) do
+                     :def -> def unquote(call) do
+                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end)
+                             end
+                     :defp -> defp unquote(call) do
+                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end)
+                             end
                    end
                  end
                end

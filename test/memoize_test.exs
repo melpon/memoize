@@ -29,4 +29,12 @@ defmodule MemoizeTest do
     assert 3 == bar(1, 2)
     assert 7 == bar(1, 2, 4)
   end
+
+  defmemop pri() do
+    10
+  end
+
+  test "defmemop defines pri" do
+    assert 10 == pri()
+  end
 end
