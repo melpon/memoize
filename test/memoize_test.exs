@@ -1,56 +1,32 @@
 defmodule MemoizeTest do
   use ExUnit.Case
-  doctest Memoize
 
-  @tab __MODULE__
-  @fun_lock :locked
+  use Memoize
 
-  setup do
-    :ets.new(@tab, [:public, :set, :named_table])
-    :ets.insert(@tab, {@fun_lock, false})
-
-    ExUnit.Callbacks.on_exit(fn -> Memoize.invalidate() end)
-
-    :ok
+  defmemo foo(x, y) when x == 0 do
+    y
   end
 
-
-  test "get_or_run" do
-    assert 10 == Memoize.get_or_run(:key, fn -> 10 end)
-    assert 10 == Memoize.get_or_run(:key, fn -> 10 end)
-    assert true == Memoize.invalidate(:key)
-    assert false == Memoize.invalidate(:key)
-    assert 10 == Memoize.get_or_run(:key, fn -> 10 end)
+  defmemo foo(x, y, z \\ 0) when x == 1 do
+    y * z
   end
 
-  defp single_call(wait_time, result) do
-    case :ets.lookup(@tab, @fun_lock) do
-      [{@fun_lock, false}] ->
-        :ets.insert(@tab, {@fun_lock, true})
-        Process.sleep(wait_time)
-        :ets.insert(@tab, {@fun_lock, false})
-        result
-      _ ->
-        raise "not single"
-    end
+  test "defmemo defines foo" do
+    assert 2 == foo(0, 2)
+    assert 0 == foo(1, 4)
+    assert 40 == foo(1, 4, 10)
   end
 
-  test "many processes call get_or_run, but one process only calls the caching function" do
-    fun = fn ->
-            assert 20 == Memoize.get_or_run(:key, fn -> single_call(100, 20) end)
-          end
+  defmemo bar(x, y) do
+    x + y
+  end
 
-    ps = for _ <- 1..1000, into: %{} do
-           {pid, ref} = Process.spawn(fun, [:monitor])
-           {pid, ref}
-         end
+  defmemo bar(x, y, z) do
+    x + y + z
+  end
 
-    for _ <- 1..1000 do
-      receive do
-        {:"DOWN", ref, :process, pid, reason} ->
-          assert ps[pid] == ref
-          assert reason == :normal
-      end
-    end
+  test "defmemo defines bar" do
+    assert 3 == bar(1, 2)
+    assert 7 == bar(1, 2, 4)
   end
 end
