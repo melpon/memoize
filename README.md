@@ -91,4 +91,5 @@ Notice: `Memoize.invalidate/{0-3}`'s complexity is linear. Therefore, it takes a
 ## Internal
 
 `Memoize` is using CAS (compare-and-swap) on ETS.
+
 CAS is [now available](http://erlang.org/doc/man/ets.html#select_replace-2) in Erlang/OTP 20.
