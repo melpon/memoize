@@ -3,8 +3,12 @@ defmodule Memoize.Mixfile do
 
   def project do
     [app: :memoize,
-     version: "0.1.0",
+     version: "1.0.0",
      elixir: "~> 1.4.5",
+     description: "A memoization macro for elixir using CAS on ETS",
+     package: [maintainers: ["melpon"],
+               licenses: ["MIT"],
+               links: %{"GitHub" => "https://github.com/melpon/memoize"}],
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps()]
@@ -16,6 +20,6 @@ defmodule Memoize.Mixfile do
   end
 
   defp deps do
-    []
+    [{:ex_doc, "~> 0.16.2", only: :dev}]
   end
 end

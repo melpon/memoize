@@ -1,4 +1,6 @@
 defmodule Memoize.Cache do
+  @moduledoc false
+
   defp tab() do
     Memoize.Application.tab()
   end

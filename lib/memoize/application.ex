@@ -1,4 +1,6 @@
 defmodule Memoize.Application do
+  @moduledoc false
+
   @behaviour Application
   @behaviour Supervisor
 

@@ -14,8 +14,10 @@ defmodule Memoize do
     end
   end
 
-  @doc """
-  this code:
+  @doc ~S"""
+  Define the memoized function.
+
+  Below code:
 
       defmemo foo(0, y) do
         y
