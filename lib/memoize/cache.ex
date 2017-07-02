@@ -17,14 +17,18 @@ defmodule Memoize.Cache do
     num_replaced == 1
   end
 
-  defp set_result_and_get_waiter_pids(key, result) do
+  defp set_result_and_get_waiter_pids(key, result, expires_in) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(), key)
-    if compare_and_swap(expected, {key, {:completed, result, :infinity}}) do
+    expired_at = case expires_in do
+                   :infinity -> :infinity
+                   value -> System.monotonic_time(:millisecond) + value
+                 end
+    if compare_and_swap(expected, {key, {:completed, result, expired_at}}) do
       waiter_pids
     else
       # retry
-      set_result_and_get_waiter_pids(key, result)
+      set_result_and_get_waiter_pids(key, result, expires_in)
     end
   end
 
@@ -39,7 +43,7 @@ defmodule Memoize.Cache do
     end
   end
 
-  def get_or_run(key, fun) do
+  def get_or_run(key, fun, opts \\ []) do
     case :ets.lookup(tab(), key) do
       # not started
       [] ->
@@ -50,7 +54,8 @@ defmodule Memoize.Cache do
             fun.()
           else
             result ->
-              waiter_pids = set_result_and_get_waiter_pids(key, result)
+              expires_in = Keyword.get(opts, :expires_in, :infinity)
+              waiter_pids = set_result_and_get_waiter_pids(key, result, expires_in)
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
                                     end)

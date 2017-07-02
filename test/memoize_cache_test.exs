@@ -96,4 +96,27 @@ defmodule Memoize.CacheTest do
       end
     end
   end
+
+  defp cache_with_call_count(wait_time) do
+    Process.sleep(wait_time)
+    case :ets.update_counter(@tab, @call_count, {2, 1}) do
+      1 ->
+        # first call is failed
+        Process.sleep(wait_time)
+        10
+      2 ->
+        # second call
+        Process.sleep(wait_time)
+        20
+    end
+  end
+
+  test "at first call after cache is expired, new value is cached" do
+    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
+    # wait to expire the cache
+    Process.sleep(120)
+    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
+    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
+  end
 end

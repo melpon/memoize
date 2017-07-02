@@ -2,7 +2,12 @@ defmodule Memoize do
 
   defmacro __using__(_) do
     quote do
-      import Memoize, only: [defmemo: 2, defmemop: 2]
+      import Memoize, only: [defmemo: 1,
+                             defmemo: 2,
+                             defmemo: 3,
+                             defmemop: 1,
+                             defmemop: 2,
+                             defmemop: 3]
       @memodefs []
       @before_compile Memoize
     end
@@ -42,14 +47,32 @@ defmodule Memoize do
       end
   """
   defmacro defmemo(call, expr \\ nil) do
-    define(:def, call, expr)
+    define(:def, call, [], expr)
   end
 
   defmacro defmemop(call, expr \\ nil) do
-    define(:defp, call, expr)
+    define(:defp, call, [], expr)
   end
 
-  defp define(method, call, expr) do
+  defmacro defmemo(call, opts, expr) do
+    define(:def, call, opts, expr)
+  end
+
+  defmacro defmemop(call, opts, expr) do
+    define(:defp, call, opts, expr)
+  end
+
+  defp define(method, call, _opts, nil) do
+    # declare function
+    quote do
+      case unquote(method) do
+        :def -> def unquote(call)
+        :defp -> defp unquote(call)
+      end
+    end
+  end
+
+  defp define(method, call, opts, expr) do
     {origname, memocall, origdefs} = init_defmemo(call)
     memoname = memoname(origname)
 
@@ -61,10 +84,10 @@ defmodule Memoize do
                  quote do
                    case unquote(method) do
                      :def -> def unquote(call) do
-                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end)
+                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
                              end
                      :defp -> defp unquote(call) do
-                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end)
+                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
                              end
                    end
                  end

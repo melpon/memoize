@@ -52,4 +52,35 @@ defmodule MemoizeTest do
     assert 1 == Memoize.invalidate(:mod1)
     assert 1 == Memoize.invalidate()
   end
+
+  defmemo nothing_do(x)
+  defmemo nothing_do(x) when x == 0, do: 0
+  defmemo nothing_do(x) when x == 1, do: x * 2
+
+  test "even if the `def` function has not `do`, defmemo is passed" do
+    assert 0 == nothing_do(0)
+    assert 2 == nothing_do(1)
+  end
+
+  defmemo has_expire(pid), expires_in: 100 do
+    send(pid, :ok)
+  end
+
+  test "defmemo with expire" do
+    assert :ok == has_expire(self())
+    assert_received :ok
+
+    # cached
+    assert :ok == has_expire(self())
+    refute_received _
+
+    # wait to expire
+    Process.sleep(120)
+    assert :ok == has_expire(self())
+    assert_received :ok
+
+    # cached
+    assert :ok == has_expire(self())
+    refute_received _
+  end
 end
