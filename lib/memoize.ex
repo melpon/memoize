@@ -8,7 +8,8 @@ defmodule Memoize do
                              defmemop: 1,
                              defmemop: 2,
                              defmemop: 3]
-      @memodefs []
+      @memoize_memodefs []
+      @memoize_origdefined %{}
       @before_compile Memoize
     end
   end
@@ -16,42 +17,49 @@ defmodule Memoize do
   @doc """
   this code:
 
-      defmemo foo(x, y) when x == 0 do
+      defmemo foo(0, y) do
         y
       end
 
-      defmemo foo(x, y, z \\ 0) when x == 1 do
+      defmemo foo(x, y) when x == 1 do
+        y * z
+      end
+
+      defmemo foo(x, y, z \\ 0) when x == 2 do
         y * z
       end
 
   is converted to:
 
-      def foo(x, y) when x == 0 do
-        Memoize.Cache.get_or_run({__MODULE__, :foo, [x, y]}, fn -> __foo_memoize(x, y) end)
+      def foo(t1, t2) do
+        Memoize.Cache.get_or_run({__MODULE__, :foo, [t1, t2]}, fn -> __foo_memoize(t1, t2) end)
       end
 
-      def foo(x, y) when x == 1 do
-        Memoize.Cache.get_or_run({__MODULE__, :foo, [x, y]}, fn -> __foo_memoize(x, y) end)
+      def foo(t1, t2, t3) do
+        Memoize.Cache.get_or_run({__MODULE__, :foo, [t1, t2, t3]}, fn -> __foo_memoize(t1, t2, t3) end)
       end
 
-      def foo(x, y, z) when x == 1 do
-        Memoize.Cache.get_or_run({__MODULE__, :foo, [x, y, z]}, fn -> __foo_memoize(x, y, z) end)
-      end
-
-      def __foo_memoize(x, y) when x == 0 do
+      defmemo __foo_memoize(0, y) do
         y
       end
 
-      def __foo_memoize(x, y, z \\ 0) when x == 1 do
+      defmemo __foo_memoize(x, y) when x == 1 do
         y * z
       end
+
+      defmemo __foo_memoize(x, y, z \\ 0) when x == 2 do
+        y * z
+      end
+
   """
-  defmacro defmemo(call, expr \\ nil) do
-    define(:def, call, [], expr)
+  defmacro defmemo(call, expr_or_opts \\ nil) do
+    {opts, expr} = resolve_expr_or_opts(expr_or_opts)
+    define(:def, call, opts, expr)
   end
 
-  defmacro defmemop(call, expr \\ nil) do
-    define(:defp, call, [], expr)
+  defmacro defmemop(call, expr_or_opts \\ nil) do
+    {opts, expr} = resolve_expr_or_opts(expr_or_opts)
+    define(:defp, call, opts, expr)
   end
 
   defmacro defmemo(call, opts, expr) do
@@ -62,6 +70,15 @@ defmodule Memoize do
     define(:defp, call, opts, expr)
   end
 
+  defp resolve_expr_or_opts(expr_or_opts) do
+    cond do
+      expr_or_opts == nil -> {[], nil}
+      # expr_or_opts is expr
+      Keyword.has_key?(expr_or_opts, :do) -> {[], expr_or_opts}
+      # expr_or_opts is opts
+      true -> {expr_or_opts, nil}
+    end
+  end
   defp define(method, call, _opts, nil) do
     # declare function
     quote do
@@ -73,61 +90,73 @@ defmodule Memoize do
   end
 
   defp define(method, call, opts, expr) do
-    {origname, memocall, origdefs} = init_defmemo(call)
-    memoname = memoname(origname)
+    {memocall, fun} = init_defmemo(call)
 
     register_memodef = quote bind_quoted: [memocall: Macro.escape(memocall), expr: Macro.escape(expr)] do
-                         @memodefs [{memocall, expr} | @memodefs]
+                         @memoize_memodefs [{memocall, expr} | @memoize_memodefs]
                        end
 
-    origdefs = for {call, args} <- origdefs do
-                 quote do
-                   case unquote(method) do
-                     :def -> def unquote(call) do
-                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
-                             end
-                     :defp -> defp unquote(call) do
-                               Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
-                             end
-                   end
-                 end
-               end
+    {origname, from, to} = expand_default_args(fun)
+    memoname = memoname(origname)
+
+    origdefs =
+      for n <- from..to do
+        args = make_args(n)
+        quote do
+          unless Map.has_key?(@memoize_origdefined, {unquote(origname), unquote(n)}) do
+            @memoize_origdefined Map.put(@memoize_origdefined, {unquote(origname), unquote(n)}, true)
+            case unquote(method) do
+              :def ->
+                def unquote(origname)(unquote_splicing(args)) do
+                  Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
+                end
+              :defp ->
+                defp unquote(origname)(unquote_splicing(args)) do
+                  Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
+                end
+            end
+          end
+        end
+      end
 
     [register_memodef | origdefs]
+  end
+
+  # {:foo, 1, 3} == expand_default_args(quote(do: foo(x, y \\ 10, z \\ 20)))
+  defp expand_default_args(fun) do
+    {name, args} = Macro.decompose_call(fun)
+    is_default_arg = fn {:\\, _, _} -> true
+                        _ -> false end
+    min_args = Enum.reject(args, is_default_arg)
+    {name, length(min_args), length(args)}
+  end
+
+  # [] == make_args(0)
+  # [{:t1, [], Elixir}, {:t2, [], Elixir}] == make_args(2)
+  defp make_args(0) do
+    []
+  end
+  defp make_args(n) do
+    for v <- 1..n do
+      {:"t#{v}", [], Elixir}
+    end
   end
 
   defp memoname(origname), do: :"__#{origname}_memoize"
 
   defp init_defmemo({:when, meta, [{origname, exprmeta, args} = fun, right | []]}) do
     memocall = {:when, meta, [{memoname(origname), exprmeta, args}, right]}
-    origdefs =
-      for {name, args, _as, as_args} <- Kernel.Utils.defdelegate(fun, []) do
-        call = quote do
-                 unquote(name)(unquote_splicing(args)) when unquote(right)
-               end
-
-        args = as_args
-        {call, args}
-      end
-    {origname, memocall, origdefs}
+    {memocall, fun}
   end
 
   defp init_defmemo({origname, exprmeta, args} = fun) do
     memocall = {memoname(origname), exprmeta, args}
-    origdefs =
-      for {name, args, _as, as_args} <- Kernel.Utils.defdelegate(fun, []) do
-          call = quote do
-                   unquote(name)(unquote_splicing(args))
-                 end
-          args = as_args
-          {call, args}
-      end
-    {origname, memocall, origdefs}
+    {memocall, fun}
   end
 
   defmacro __before_compile__(_) do
     quote do
-      @memodefs
+      @memoize_memodefs
       |> Enum.reverse()
       |> Enum.map(fn {memocall, expr} ->
                     Code.eval_quoted({:defp, [], [memocall, expr]}, [], __ENV__)

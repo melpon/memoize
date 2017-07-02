@@ -7,14 +7,19 @@ defmodule MemoizeTest do
     y
   end
 
-  defmemo foo(x, y, z \\ 0) when x == 1 do
+  defmemo foo(1, y) do
+    y * 2
+  end
+
+  defmemo foo(x, y, z \\ 0) when x == 2 do
     y * z
   end
 
   test "defmemo defines foo" do
     assert 2 == foo(0, 2)
-    assert 0 == foo(1, 4)
-    assert 40 == foo(1, 4, 10)
+    assert 8 == foo(1, 4)
+    assert 0 == foo(2, 4)
+    assert 40 == foo(2, 4, 10)
   end
 
   defmemo bar(x, y) do
@@ -82,5 +87,19 @@ defmodule MemoizeTest do
     # cached
     assert :ok == has_expire(self())
     refute_received _
+  end
+
+  defmodule Tarai do
+    use Memoize
+    defmemo tarai(x, y, _z) when x <= y, do: y
+    defmemo tarai(x, y, z) do
+      tarai(tarai(x - 1, y, z),
+            tarai(y - 1, z, x),
+            tarai(z - 1, x, y))
+    end
+  end
+
+  test "tarai" do
+    assert 12 == Tarai.tarai(12, 6, 0)
   end
 end
