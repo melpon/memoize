@@ -7,6 +7,16 @@ A memoization macro.
 - Elixir 1.4.5 or later.
 - Erlang/OTP 20 or later.
 
+## Installation
+
+Add `:memoize` to your `mix.exs` dependencies:
+
+```
+defp deps do
+  [{:memoize, "~> 1.0.0"}]
+end
+```
+
 ## How to memoize
 
 If you want to cache a function, `use Memoize` on the module and change `def` to `defmemo`.
