@@ -13,7 +13,7 @@ defmodule Memoize.Application do
   end
 
   def init(_) do
-    :ets.new(@ets_tab, [:public, :set, :named_table])
+    :ets.new(@ets_tab, [:public, :set, :named_table, {:read_concurrency, true}])
     Supervisor.Spec.supervise([], strategy: :one_for_one)
   end
 
