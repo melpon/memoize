@@ -42,6 +42,8 @@ defmodule Fib do
 end
 ```
 
+If a function defined by `defmemo` raises an error, the result is not cached and one of waiting processes will call the function.
+
 ## Exclusive
 
 A caching function that is defined by `defmemo` is never called in parallel.
@@ -96,7 +98,7 @@ Memoize.invalidate(Fib)
 Memoize.invalidate()
 ```
 
-Notice: `Memoize.invalidate/{0-3}`'s complexity is linear. Therefore, it takes a long time if `Memoize` has many cached values.
+Notice: `Memoize.invalidate/{0-2}`'s complexity is linear. Therefore, it takes a long time if `Memoize` has many cached values.
 
 ## Internal
 
