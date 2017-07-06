@@ -1,6 +1,6 @@
 # Memoize
 
-A memoization macro.
+A memoization macro. [Available in Hex](https://hex.pm/packages/memoize).
 
 ## Requirement
 
