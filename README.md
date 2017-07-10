@@ -1,6 +1,8 @@
 # Memoize
 
-A memoization macro. the module available in [hex.pm](https://hex.pm/packages/memoize).
+A memoization macro.
+
+The application available in [hex.pm](https://hex.pm/packages/memoize).
 
 ## Requirement
 
