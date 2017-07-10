@@ -178,4 +178,6 @@ defmodule Memoize do
   def invalidate(module, function, arguments) do
     Memoize.Cache.invalidate({module, function, arguments})
   end
+
+  defdelegate garbage_collect(), to: Memoize.Cache
 end

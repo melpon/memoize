@@ -119,4 +119,9 @@ defmodule Memoize.Cache do
   def invalidate(key) do
     :ets.select_delete(tab(), [{{key, {:completed, :_, :_}}, [], [true]}])
   end
+
+  def garbage_collect() do
+    expired_at = System.monotonic_time(:millisecond)
+    :ets.select_delete(tab(), [{{:_, {:completed, :_, :"$1"}}, [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}])
+  end
 end

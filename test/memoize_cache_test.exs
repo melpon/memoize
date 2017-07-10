@@ -97,26 +97,39 @@ defmodule Memoize.CacheTest do
     end
   end
 
-  defp cache_with_call_count(wait_time) do
+  defp cache_with_call_count(key, wait_time) do
     Process.sleep(wait_time)
-    case :ets.update_counter(@tab, @call_count, {2, 1}) do
+    case :ets.update_counter(@tab, {@call_count, key}, {2, 1}, {{@call_count, key}, 0}) do
       1 ->
-        # first call is failed
-        Process.sleep(wait_time)
+        # first call
         10
       2 ->
         # second call
-        Process.sleep(wait_time)
         20
     end
   end
 
   test "at first call after cache is expired, new value is cached" do
-    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
-    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
     # wait to expire the cache
     Process.sleep(120)
-    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
-    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(100) end, expires_in: 100)
+    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
+    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
+  end
+
+  test "after garbage_collect/0 is called, expired value is collected" do
+    assert 10 == Memoize.Cache.get_or_run(:key1, fn -> cache_with_call_count(:key1, 100) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
+    # wait to expire the cache
+    Process.sleep(120)
+    # insert new value
+    assert 10 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end, expires_in: 100)
+    # :key1's value is collected
+    assert 1 == Memoize.Cache.garbage_collect()
+
+    assert 20 == Memoize.Cache.get_or_run(:key1, fn -> cache_with_call_count(:key1, 0) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
   end
 end

@@ -80,6 +80,8 @@ end
 
 The cached value is invalidated in the first `get_config/0` function call after `expires_in` milliseconds have elapsed.
 
+To collect expired values, you can use `garbage_collect/0`. It collects all expired values. Its complexity is linear.
+
 ## Invalidate
 
 If you want to invalidate cache, you can use `Memoize.invalidate/{0-3}`.
