@@ -118,7 +118,7 @@ defmodule Memoize.MemoryStrategy do
 end
 ```
 
-If you want to use customized memory strategy, implement `Memoize.MemoryStrategy` behaviour.
+If you want to use a customized memory strategy, implement `Memoize.MemoryStrategy` behaviour.
 
 ```elixir
 defmodule YourAwesomeApp.ExcellentMemoryStrategy do
@@ -141,15 +141,15 @@ config :memoize,
 
 WARNING: A memory strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change memory strategy.
 
-### `init/0`
+### init/0
 
 When application is started, `init/0` is called only once.
 
-### `tab/1`
+### tab/1
 
 To determine which ETS tab to use, Memoize calls `tab/0`.
 
-### `cache/3`
+### cache/3
 
 When new value is cached, `cache/3` will be called.
 The first argument is `key` that is used as cache key.
@@ -160,7 +160,7 @@ The third argument is `opts` that is passed by `defmemo`.
 `context` is stored to ETS.
 And then, the context is passed to `read/3`'s third argument.
 
-### `read/3`
+### read/3
 
 When a value is looked up by a key, `read/3` will be called.
 first and second arguments are same as `cache/3`.
@@ -170,11 +170,11 @@ The third argument is `context` that is created at `cache/3`.
 If `:retry` is returned, retry the lookup.
 If `:ok` is returned, return the `value`.
 
-### `invalidte/{0,1}`
+### invalidte/{0,1}
 
 These functions are called from `Memoize.invalidate/{0-4}`.
 
-### `garbage_collect/0`
+### garbage_collect/0
 
 The function is called from `Memoize.garbage_collect/0`.
 
