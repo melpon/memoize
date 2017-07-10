@@ -143,6 +143,8 @@ config :memoize,
 
 WARNING: A memory strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change memory strategy.
 
+By default, the memory strategy is `Memoize.MemoryStrategy.Default`.
+
 ### init/0
 
 When application is started, `init/0` is called only once.
