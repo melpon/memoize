@@ -1,43 +1,41 @@
 defmodule Memoize.Cache do
   @moduledoc false
 
-  defp tab() do
-    Memoize.Application.tab()
+  @memory_strategy Application.get_env(:memoize, :memory_strategy, Memoize.MemoryStrategy.Default)
+
+  defp tab(key) do
+    @memory_strategy.tab(key)
   end
 
-  defp compare_and_swap(:nothing, value) do
-    :ets.insert_new(tab(), value)
+  defp compare_and_swap(key, :nothing, value) do
+    :ets.insert_new(tab(key), value)
   end
 
-  defp compare_and_swap(expected, :nothing) do
-    num_deleted = :ets.select_delete(tab(), [{expected, [], [true]}])
+  defp compare_and_swap(key, expected, :nothing) do
+    num_deleted = :ets.select_delete(tab(key), [{expected, [], [true]}])
     num_deleted == 1
   end
 
-  defp compare_and_swap(expected, value) do
-    num_replaced = :ets.select_replace(tab(), [{expected, [], [{:const, value}]}])
+  defp compare_and_swap(key, expected, value) do
+    num_replaced = :ets.select_replace(tab(key), [{expected, [], [{:const, value}]}])
     num_replaced == 1
   end
 
-  defp set_result_and_get_waiter_pids(key, result, expires_in) do
+  defp set_result_and_get_waiter_pids(key, result, context) do
     runner_pid = self()
-    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(), key)
-    expired_at = case expires_in do
-                   :infinity -> :infinity
-                   value -> System.monotonic_time(:millisecond) + value
-                 end
-    if compare_and_swap(expected, {key, {:completed, result, expired_at}}) do
+    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
+    if compare_and_swap(key, expected, {key, {:completed, result, context}}) do
       waiter_pids
     else
       # retry
-      set_result_and_get_waiter_pids(key, result, expires_in)
+      set_result_and_get_waiter_pids(key, result, context)
     end
   end
 
   defp delete_and_get_waiter_pids(key) do
     runner_pid = self()
-    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(), key)
-    if compare_and_swap(expected, :nothing) do
+    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
+    if compare_and_swap(key, expected, :nothing) do
       waiter_pids
     else
       # retry
@@ -46,18 +44,18 @@ defmodule Memoize.Cache do
   end
 
   def get_or_run(key, fun, opts \\ []) do
-    case :ets.lookup(tab(), key) do
+    case :ets.lookup(tab(key), key) do
       # not started
       [] ->
         # calc
         runner_pid = self()
-        if compare_and_swap(:nothing, {key, {:running, runner_pid, %{}}}) do
+        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, %{}}}) do
           try do
             fun.()
           else
             result ->
-              expires_in = Keyword.get(opts, :expires_in, :infinity)
-              waiter_pids = set_result_and_get_waiter_pids(key, result, expires_in)
+              context = @memory_strategy.cache(key, result, opts)
+              waiter_pids = set_result_and_get_waiter_pids(key, result, context)
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
                                     end)
@@ -78,7 +76,7 @@ defmodule Memoize.Cache do
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
         waiter_pids = Map.put(waiter_pids, self(), :ignore)
-        if compare_and_swap(expected, {key, {:running, runner_pid, waiter_pids}}) do
+        if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
           ref = Process.monitor(runner_pid)
           receive do
             {^runner_pid, :completed} -> :ok
@@ -102,26 +100,23 @@ defmodule Memoize.Cache do
         end
 
       # completed
-      [{^key, {:completed, value, expired_at}}] ->
-        if expired_at != :infinity && System.monotonic_time(:millisecond) > expired_at do
-          invalidate(key)
-          get_or_run(key, fun)
-        else
-          value
+      [{^key, {:completed, value, context}}] ->
+        case @memory_strategy.read(key, value, context) do
+          :retry -> get_or_run(key, fun)
+          :ok -> value
         end
     end
   end
 
   def invalidate() do
-    :ets.select_delete(tab(), [{{:_, {:completed, :_, :_}}, [], [true]}])
+    @memory_strategy.invalidate()
   end
 
   def invalidate(key) do
-    :ets.select_delete(tab(), [{{key, {:completed, :_, :_}}, [], [true]}])
+    @memory_strategy.invalidate(key)
   end
 
   def garbage_collect() do
-    expired_at = System.monotonic_time(:millisecond)
-    :ets.select_delete(tab(), [{{:_, {:completed, :_, :"$1"}}, [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}])
+    @memory_strategy.garbage_collect()
   end
 end

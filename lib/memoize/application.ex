@@ -4,7 +4,7 @@ defmodule Memoize.Application do
   @behaviour Application
   @behaviour Supervisor
 
-  @ets_tab __MODULE__
+  @memory_strategy Application.get_env(:memoize, :memory_strategy, Memoize.MemoryStrategy.Default)
 
   def start(_type, _args) do
     Supervisor.start_link(__MODULE__, [], strategy: :one_for_one)
@@ -15,11 +15,7 @@ defmodule Memoize.Application do
   end
 
   def init(_) do
-    :ets.new(@ets_tab, [:public, :set, :named_table, {:read_concurrency, true}])
+    @memory_strategy.init()
     Supervisor.Spec.supervise([], strategy: :one_for_one)
-  end
-
-  def tab() do
-    @ets_tab
   end
 end

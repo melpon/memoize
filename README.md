@@ -102,6 +102,82 @@ Memoize.invalidate()
 
 Notice: `Memoize.invalidate/{0-2}`'s complexity is linear. Therefore, it takes a long time if `Memoize` has many cached values.
 
+## Memory Strategy
+
+You can customize memory strategy.
+
+```elixir
+defmodule Memoize.MemoryStrategy do
+  @callback init() :: any
+  @callback tab(any) :: atom
+  @callback cache(any, any, Keyword.t) :: any
+  @callback read(any, any, any) :: :ok | :retry
+  @callback invalidate() :: integer
+  @callback invalidate(any) :: integer
+  @callback garbage_collect() :: integer
+end
+```
+
+If you want to use customized memory strategy, implement `Memoize.MemoryStrategy` behaviour.
+
+```elixir
+defmodule YourAwesomeApp.ExcellentMemoryStrategy do
+  @behaviour Memoize.MemoryStrategy
+
+  def init() do
+    ...
+  end
+
+  ...
+end
+```
+
+Then, configure `:memory_strategy` in `:memoize` application.
+
+```elixir
+config :memoize,
+  memory_strategy: YourAwesomeApp.ExcellentMemoryStrategy
+```
+
+WARNING: A memory strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change memory strategy.
+
+### `init/0`
+
+When application is started, `init/0` is called only once.
+
+### `tab/1`
+
+To determine which ETS tab to use, Memoize calls `tab/0`.
+
+### `cache/3`
+
+When new value is cached, `cache/3` will be called.
+The first argument is `key` that is used as cache key.
+The second argument is `value` that is calculated value by cache key.
+The third argument is `opts` that is passed by `defmemo`.
+
+`cache/3` can return an any value that is called `context`.
+`context` is stored to ETS.
+And then, the context is passed to `read/3`'s third argument.
+
+### `read/3`
+
+When a value is looked up by a key, `read/3` will be called.
+first and second arguments are same as `cache/3`.
+The third argument is `context` that is created at `cache/3`.
+
+`read/3` can return `:retry` or `:ok`.
+If `:retry` is returned, retry the lookup.
+If `:ok` is returned, return the `value`.
+
+### `invalidte/{0,1}`
+
+These functions are called from `Memoize.invalidate/{0-4}`.
+
+### `garbage_collect/0`
+
+The function is called from `Memoize.garbage_collect/0`.
+
 ## Internal
 
 `Memoize` is using CAS (compare-and-swap) on ETS.
