@@ -1,6 +1,6 @@
 # Memoize
 
-A memoization macro. [Available in Hex](https://hex.pm/packages/memoize).
+A memoization macro. the module available in [hex.pm](https://hex.pm/packages/memoize).
 
 ## Requirement
 
@@ -11,7 +11,7 @@ A memoization macro. [Available in Hex](https://hex.pm/packages/memoize).
 
 Add `:memoize` to your `mix.exs` dependencies:
 
-```
+```elixir
 defp deps do
   [{:memoize, "~> 1.0.0"}]
 end
