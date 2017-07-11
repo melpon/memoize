@@ -59,7 +59,7 @@ defmodule Memoize.Cache do
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
                                     end)
-              result
+              get_or_run(key, fun)
           rescue
             error ->
               # the status should be :running
