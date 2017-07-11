@@ -1,7 +1,7 @@
 defmodule Memoize.Cache do
   @moduledoc false
 
-  @memory_strategy Application.get_env(:memoize, :memory_strategy, Memoize.MemoryStrategy.Default)
+  @memory_strategy Memoize.Application.memory_strategy()
 
   defp tab(key) do
     @memory_strategy.tab(key)

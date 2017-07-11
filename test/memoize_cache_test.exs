@@ -15,6 +15,7 @@ defmodule Memoize.CacheTest do
     :ok
   end
 
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Default
   test "get_or_run" do
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
@@ -109,6 +110,7 @@ defmodule Memoize.CacheTest do
     end
   end
 
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Default
   test "at first call after cache is expired, new value is cached" do
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
@@ -118,6 +120,7 @@ defmodule Memoize.CacheTest do
     assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
   end
 
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Default
   test "after garbage_collect/0 is called, expired value is collected" do
     assert 10 == Memoize.Cache.get_or_run(:key1, fn -> cache_with_call_count(:key1, 100) end, expires_in: 100)
     assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
