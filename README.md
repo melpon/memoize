@@ -89,93 +89,35 @@ Notice: `Memoize.invalidate/{0-2}`'s complexity is linear. Therefore, it takes a
 
 ## Memory Strategy
 
-You can customize memory strategy.
+Memory strategy is a behaviour to management cached values.
 
-```elixir
-defmodule Memoize.MemoryStrategy do
-  @callback init() :: any
-  @callback tab(any) :: atom
-  @callback cache(any, any, Keyword.t) :: any
-  @callback read(any, any, any) :: :ok | :retry
-  @callback invalidate() :: integer
-  @callback invalidate(any) :: integer
-  @callback garbage_collect() :: integer
-end
-```
+By default, the memory strategy is `Memoize.MemoryStrategy.Default`.
 
-If you want to use a customized memory strategy, implement `Memoize.MemoryStrategy` behaviour.
-
-```elixir
-defmodule YourAwesomeApp.ExcellentMemoryStrategy do
-  @behaviour Memoize.MemoryStrategy
-
-  def init() do
-    ...
-  end
-
-  ...
-end
-```
-
-Then, configure `:memory_strategy` in `:memoize` application.
+If you want to change the memory strategy, configure `:memory_strategy` in `:memoize` application.
 
 ```elixir
 config :memoize,
-  memory_strategy: YourAwesomeApp.ExcellentMemoryStrategy
+  memory_strategy: Memoize.MemoryStrategy.Eviction
 ```
 
 WARNING: A memory strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change memory strategy.
 
-`tab/1`, `read/3`, `invalidate/{0-1}`, `garbage_collect/0` are called concurrently.
-`cache/3` is not called concurrently, but other functions are called concurrently while `cache/3` is called by a process.
+`memoize` provides below memory strategies.
 
-By default, the memory strategy is `Memoize.MemoryStrategy.Default`.
+- `Memoize.MemoryStrategy.Default`
+- `Memoize.MemoryStrategy.Eviction`
 
-### init/0
-
-When application is started, `init/0` is called only once.
-
-### tab/1
-
-To determine which ETS tab to use, Memoize calls `tab/0`.
-
-### cache/3
-
-When new value is cached, `cache/3` will be called.
-The first argument is `key` that is used as cache key.
-The second argument is `value` that is calculated value by cache key.
-The third argument is `opts` that is passed by `defmemo`.
-
-`cache/3` can return an any value that is called `context`.
-`context` is stored to ETS.
-And then, the context is passed to `read/3`'s third argument.
-
-### read/3
-
-When a value is looked up by a key, `read/3` will be called.
-first and second arguments are same as `cache/3`.
-The third argument is `context` that is created at `cache/3`.
-
-`read/3` can return `:retry` or `:ok`.
-If `:retry` is returned, retry the lookup.
-If `:ok` is returned, return the `value`.
-
-### invalidte/{0,1}
-
-These functions are called from `Memoize.invalidate/{0-4}`.
-
-### garbage_collect/0
-
-The function is called from `Memoize.garbage_collect/0`.
-
-## MemoryStrategy - Memoize.MemoryStrategy.Default
+## Memory Strategy - Memoize.MemoryStrategy.Default
 
 Default memory strategy.
 It provides only simple and fast features.
 
+Basically, cached values is not collected automatically.
+To collect cached values, call `invalidate/{0-4}`, call `garbage_collect/0` or specify `:expires_in` with `defmemo`.
+
 ### Expiration
 
-If you want to invalidate the cache after a certain period of time, you can use `:expired_in`.
+If you want to invalidate the cache after a certain period of time, you can use `:expires_in`.
 
 ```elixir
 defmodule Api do
@@ -190,12 +132,12 @@ The cached value is invalidated in the first `get_config/0` function call after 
 
 To collect expired values, you can use `garbage_collect/0`. It collects all expired values. Its complexity is linear.
 
-## MemoryStrategy - Memoize.MemoryStrategy.Eviction
+## Memory Strategy - Memoize.MemoryStrategy.Eviction
 
 `Memoize.MemoryStrategy.Eviction` is one of memory strategy.
 It provides many features, but slower than `Memoize.MemoryStrategy.Default`.
 
-The strategy is, basically, if cached memory size is exceeded `max_threshold`, collect *unused* cached values until it falls below `min_threshold`.
+The strategy is, basically, if cached memory size is exceeded `max_threshold`, *unused* cached values are collected until memory size falls below `min_threshold`.
 
 To use `Memoize.MemoryStrategy.Eviction`, configure `:memory_strategy` as below:
 
@@ -240,6 +182,83 @@ end
 
 You can both specify `:permanent` and `:expires_in`.
 In the case, the cached value is not collected by `garbage_collect/0` or memory size that exceed `max_threshold`, but after `:expires_in` milliseconds it is collected.
+
+## Memory Strategy - Your Strategy
+
+You can customize memory strategy.
+
+```elixir
+defmodule Memoize.MemoryStrategy do
+  @callback init() :: any
+  @callback tab(any) :: atom
+  @callback cache(any, any, Keyword.t) :: any
+  @callback read(any, any, any) :: :ok | :retry
+  @callback invalidate() :: integer
+  @callback invalidate(any) :: integer
+  @callback garbage_collect() :: integer
+end
+```
+
+If you want to use a customized memory strategy, implement `Memoize.MemoryStrategy` behaviour.
+
+```elixir
+defmodule YourAwesomeApp.ExcellentMemoryStrategy do
+  @behaviour Memoize.MemoryStrategy
+
+  def init() do
+    ...
+  end
+
+  ...
+end
+```
+
+Then, configure `:memory_strategy` in `:memoize` application.
+
+```elixir
+config :memoize,
+  memory_strategy: YourAwesomeApp.ExcellentMemoryStrategy
+```
+
+`tab/1`, `read/3`, `invalidate/{0-1}`, `garbage_collect/0` are called concurrently.
+`cache/3` is not called concurrently, but other functions are called concurrently while `cache/3` is called by a process.
+
+### init/0
+
+When application is started, `init/0` is called only once.
+
+### tab/1
+
+To determine which ETS tab to use, Memoize calls `tab/0`.
+
+### cache/3
+
+When new value is cached, `cache/3` will be called.
+The first argument is `key` that is used as cache key.
+The second argument is `value` that is calculated value by cache key.
+The third argument is `opts` that is passed by `defmemo`.
+
+`cache/3` can return an any value that is called `context`.
+`context` is stored to ETS.
+And then, the context is passed to `read/3`'s third argument.
+
+### read/3
+
+When a value is looked up by a key, `read/3` will be called.
+first and second arguments are same as `cache/3`.
+The third argument is `context` that is created at `cache/3`.
+
+`read/3` can return `:retry` or `:ok`.
+If `:retry` is returned, retry the lookup.
+If `:ok` is returned, return the `value`.
+
+### invalidte/{0,1}
+
+These functions are called from `Memoize.invalidate/{0-4}`.
+
+### garbage_collect/0
+
+The function is called from `Memoize.garbage_collect/0`.
 
 ## Internal
 
