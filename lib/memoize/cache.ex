@@ -1,6 +1,4 @@
 defmodule Memoize.Cache do
-  @moduledoc false
-
   @memory_strategy Memoize.Application.memory_strategy()
 
   defp tab(key) do
