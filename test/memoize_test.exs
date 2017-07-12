@@ -43,7 +43,6 @@ defmodule MemoizeTest do
     assert 10 == pri()
   end
 
-  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Default
   test "invalidates cached values when call invalidate/{0-3}" do
     f = fn -> 10 end
 

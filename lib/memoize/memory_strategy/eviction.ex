@@ -20,33 +20,37 @@ defmodule Memoize.MemoryStrategy.Eviction do
     @ets_tab
   end
 
-  defp used_bytes() do
-    words = :ets.info(@ets_tab, :memory)
+  def used_bytes() do
+    words = 0
+    words = words + :ets.info(@ets_tab, :memory)
+    words = words + :ets.info(@read_history_tab, :memory)
+
     words * :erlang.system_info(:wordsize)
   end
 
-  def cache(key, _value, _opts) do
+  def cache(_key, _value, _opts) do
     if used_bytes() > @max_threshold do
       garbage_collect()
     end
-
-    counter = System.unique_integer([:monotonic, :positive])
-    :ets.insert(@read_history_tab, {key, counter})
     nil
   end
 
   def read(key, _value, _expired_at) do
     counter = System.unique_integer([:monotonic, :positive])
-    :ets.update_element(@read_history_tab, key, {2, counter})
+    :ets.insert(@read_history_tab, {key, counter})
     :ok
   end
 
   def invalidate() do
-    :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}}, [], [true]}])
+    num_deleted = :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}}, [], [true]}])
+    :ets.delete_all_objects(@read_history_tab)
+    num_deleted
   end
 
-  def invalidate(_key) do
-    0
+  def invalidate(key) do
+    num_deleted = :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
+    :ets.select_delete(@read_history_tab, [{{key, :_}, [], [true]}])
+    num_deleted
   end
 
   def garbage_collect() do
@@ -54,16 +58,18 @@ defmodule Memoize.MemoryStrategy.Eviction do
       # remove values ordered by last accessed time until used bytes less than @min_threshold.
       values = :lists.keysort(2, :ets.tab2list(@read_history_tab))
       try do
-        for {key, _} <- values do
+        for {{key, _}, num_deleted} <- Stream.with_index(values, 1) do
           :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
           :ets.delete(@read_history_tab, key)
 
           if used_bytes() <= @min_threshold do
-            throw :break
+            throw {:break, num_deleted}
           end
         end
+      else
+        _ -> length(values)
       catch
-        :break -> :ok
+        {:break, num_deleted} -> num_deleted
       end
     end
     :ok

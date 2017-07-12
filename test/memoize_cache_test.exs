@@ -15,7 +15,6 @@ defmodule Memoize.CacheTest do
     :ok
   end
 
-  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Default
   test "get_or_run" do
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
@@ -134,5 +133,68 @@ defmodule Memoize.CacheTest do
     assert 20 == Memoize.Cache.get_or_run(:key1, fn -> cache_with_call_count(:key1, 0) end, expires_in: 100)
     assert 10 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end, expires_in: 100)
     assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
+  end
+
+  def eat_memory(threshold) do
+    try do
+      for n <- 1..10000 do
+        assert 10 == Memoize.Cache.get_or_run(n, fn -> 10 end)
+        if threshold <= Memoize.MemoryStrategy.Eviction.used_bytes() do
+          throw :break
+        end
+      end
+    else
+      _ -> raise "could not finish eating"
+    catch
+      :break -> :ok
+    end
+  end
+
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Eviction
+  test "if the memory usage exceeds the max_threshold, unused cached values is evicted" do
+    opts = Application.fetch_env!(:memoize, Memoize.MemoryStrategy.Eviction)
+    min_threshold = Keyword.fetch!(opts, :min_threshold)
+    max_threshold = Keyword.fetch!(opts, :max_threshold)
+
+    eat_memory(max_threshold)
+    assert max_threshold <= Memoize.MemoryStrategy.Eviction.used_bytes()
+    # read cached values to update last accessed time
+    Memoize.Cache.get_or_run(1, fn -> 20 end)
+    Memoize.Cache.get_or_run(2, fn -> 20 end)
+    Memoize.Cache.get_or_run(3, fn -> 20 end)
+    # still exceeded the threshold
+    assert max_threshold <= Memoize.MemoryStrategy.Eviction.used_bytes()
+
+    # next inserting is occured garbage collection
+    assert 10 == Memoize.Cache.get_or_run(:gc, fn -> 10 end)
+
+    used_bytes = Memoize.MemoryStrategy.Eviction.used_bytes()
+    assert (min_threshold - 100) <= used_bytes && used_bytes <= (min_threshold + 100)
+
+    # below keys are still cached
+    Memoize.Cache.get_or_run(1, fn -> 10 end)
+    Memoize.Cache.get_or_run(2, fn -> 10 end)
+    Memoize.Cache.get_or_run(3, fn -> 10 end)
+    assert used_bytes == Memoize.MemoryStrategy.Eviction.used_bytes()
+
+    # below key is already collected
+    Memoize.Cache.get_or_run(4, fn -> 10 end)
+    assert used_bytes < Memoize.MemoryStrategy.Eviction.used_bytes()
+  end
+
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Eviction
+  test "garbage_collect/0 collects memory until it falls below min_threshold" do
+    opts = Application.fetch_env!(:memoize, Memoize.MemoryStrategy.Eviction)
+    min_threshold = Keyword.fetch!(opts, :min_threshold)
+
+    eat_memory(min_threshold)
+    assert min_threshold <= Memoize.MemoryStrategy.Eviction.used_bytes()
+
+    Memoize.Cache.get_or_run(:a, fn -> 10 end)
+    Memoize.Cache.get_or_run(:b, fn -> 10 end)
+    Memoize.Cache.get_or_run(:c, fn -> 10 end)
+    Memoize.garbage_collect()
+
+    assert min_threshold > Memoize.MemoryStrategy.Eviction.used_bytes()
   end
 end
