@@ -201,6 +201,20 @@ config :memoize, Memoize.MemoryStrategy.Eviction,
   max_threshold: 10_000_000
 ```
 
+If `:permanent` option is specified with `defmemo`, the value won't be collected automatically.
+If you want to remove the value, call `invalidate/{0-3}`.
+
+```elixir
+defmodule Json do
+  use Memoize
+  defmemo get_json(filename), permanent: true do
+    filename |> File.read!() |> Poison.decode!()
+  end
+end
+```
+
+Notice the permanented value includes in used memory size. So you should adjust `min_threshold` value.
+
 ## Internal
 
 `Memoize` is using CAS (compare-and-swap) on ETS.

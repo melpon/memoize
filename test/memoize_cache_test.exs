@@ -156,14 +156,14 @@ defmodule Memoize.CacheTest do
     min_threshold = Keyword.fetch!(opts, :min_threshold)
     max_threshold = Keyword.fetch!(opts, :max_threshold)
 
-    eat_memory(max_threshold)
-    assert max_threshold <= Memoize.MemoryStrategy.Eviction.used_bytes()
+    eat_memory(max_threshold - 100)
+    assert max_threshold - 100 <= Memoize.MemoryStrategy.Eviction.used_bytes()
     # read cached values to update last accessed time
     Memoize.Cache.get_or_run(1, fn -> 20 end)
     Memoize.Cache.get_or_run(2, fn -> 20 end)
     Memoize.Cache.get_or_run(3, fn -> 20 end)
     # still exceeded the threshold
-    assert max_threshold <= Memoize.MemoryStrategy.Eviction.used_bytes()
+    assert max_threshold - 100 <= Memoize.MemoryStrategy.Eviction.used_bytes()
 
     # next inserting is occured garbage collection
     assert 10 == Memoize.Cache.get_or_run(:gc, fn -> 10 end)
@@ -195,6 +195,24 @@ defmodule Memoize.CacheTest do
     Memoize.Cache.get_or_run(:c, fn -> 10 end)
     Memoize.garbage_collect()
 
-    assert min_threshold > Memoize.MemoryStrategy.Eviction.used_bytes()
+    used_bytes = Memoize.MemoryStrategy.Eviction.used_bytes()
+    assert min_threshold > used_bytes
+
+    # no effect
+    Memoize.garbage_collect()
+    assert used_bytes == Memoize.MemoryStrategy.Eviction.used_bytes()
+  end
+
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Eviction
+  test "if :permanent is specified in get_or_cache's opts, the cached value won't be collected by garbage_collect/0" do
+    opts = Application.fetch_env!(:memoize, Memoize.MemoryStrategy.Eviction)
+    min_threshold = Keyword.fetch!(opts, :min_threshold)
+
+    Memoize.Cache.get_or_run(:key, fn -> 10 end, permanent: true)
+    eat_memory(min_threshold)
+    Memoize.garbage_collect()
+
+    # :key's value is not collected
+    assert 10 == Memoize.Cache.get_or_run(:key, fn -> 20 end, permanent: true)
   end
 end

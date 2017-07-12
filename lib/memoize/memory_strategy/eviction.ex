@@ -28,16 +28,18 @@ defmodule Memoize.MemoryStrategy.Eviction do
     words * :erlang.system_info(:wordsize)
   end
 
-  def cache(_key, _value, _opts) do
+  def cache(_key, _value, opts) do
     if used_bytes() > @max_threshold do
       garbage_collect()
     end
-    nil
+    %{permanent: Keyword.get(opts, :permanent, false)}
   end
 
-  def read(key, _value, _expired_at) do
-    counter = System.unique_integer([:monotonic, :positive])
-    :ets.insert(@read_history_tab, {key, counter})
+  def read(key, _value, context) do
+    unless context.permanent do
+      counter = System.unique_integer([:monotonic, :positive])
+      :ets.insert(@read_history_tab, {key, counter})
+    end
     :ok
   end
 
@@ -57,8 +59,9 @@ defmodule Memoize.MemoryStrategy.Eviction do
     if used_bytes() > @min_threshold do
       # remove values ordered by last accessed time until used bytes less than @min_threshold.
       values = :lists.keysort(2, :ets.tab2list(@read_history_tab))
+      stream = values |> Stream.filter(fn n -> n != :permanent end) |> Stream.with_index(1)
       try do
-        for {{key, _}, num_deleted} <- Stream.with_index(values, 1) do
+        for {{key, _}, num_deleted} <- stream do
           :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
           :ets.delete(@read_history_tab, key)
 
