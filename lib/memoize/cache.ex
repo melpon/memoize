@@ -1,7 +1,7 @@
 defmodule Memoize.Cache do
   @moduledoc false
 
-  @memory_strategy Application.get_env(:memoize, :memory_strategy, Memoize.MemoryStrategy.Default)
+  @memory_strategy Memoize.Application.memory_strategy()
 
   defp tab(key) do
     @memory_strategy.tab(key)
@@ -59,7 +59,7 @@ defmodule Memoize.Cache do
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
                                     end)
-              result
+              get_or_run(key, fun)
           rescue
             error ->
               # the status should be :running

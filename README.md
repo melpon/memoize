@@ -143,6 +143,9 @@ config :memoize,
 
 WARNING: A memory strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change memory strategy.
 
+`tab/1`, `read/3`, `invalidate/{0-1}`, `garbage_collect/0` are called concurrently.
+`cache/3` is not called concurrently, but other functions are called concurrently while `cache/3` is called by a process.
+
 By default, the memory strategy is `Memoize.MemoryStrategy.Default`.
 
 ### init/0
@@ -181,6 +184,22 @@ These functions are called from `Memoize.invalidate/{0-4}`.
 ### garbage_collect/0
 
 The function is called from `Memoize.garbage_collect/0`.
+
+## MemoryStrategy - Memoize.MemoryStrategy.Eviction
+
+`Memoize.MemoryStrategy.Eviction` is one of memory strategy.
+The strategy is, if cached memory size is exceeded `max_threshold`, collect *unused* cached values until it falls below `min_threshold`.
+
+To use `Memoize.MemoryStrategy.Eviction`, configure `:memory_strategy` as below:
+
+```elixir
+config :memoize,
+  memory_strategy: Memoize.MemoryStrategy.Eviction
+
+config :memoize, Memoize.MemoryStrategy.Eviction,
+  min_threshold: 5_000_000,
+  max_threshold: 10_000_000
+```
 
 ## Internal
 

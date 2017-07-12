@@ -18,4 +18,8 @@ defmodule Memoize.Application do
     @memory_strategy.init()
     Supervisor.Spec.supervise([], strategy: :one_for_one)
   end
+
+  def memory_strategy() do
+    @memory_strategy
+  end
 end
