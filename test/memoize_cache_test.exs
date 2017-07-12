@@ -215,4 +215,19 @@ defmodule Memoize.CacheTest do
     # :key's value is not collected
     assert 10 == Memoize.Cache.get_or_run(:key, fn -> 20 end, permanent: true)
   end
+
+  @tag skip: Memoize.memory_strategy() != Memoize.MemoryStrategy.Eviction
+  test "after expires_in milliseconds have elapsed, all expired value is collected" do
+    assert 10 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 0) end, expires_in: 100)
+    assert 10 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end, expires_in: 200)
+    # wait to expire the :key's cache
+    Process.sleep(120)
+    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 0) end)
+    assert 10 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end)
+    # wait to expire the :key2's cache
+    Process.sleep(120)
+    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 0) end)
+    assert 20 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end)
+  end
+
 end

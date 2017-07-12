@@ -67,23 +67,6 @@ end
 # but, actually `Calc.calc/0` is called only once.
 ```
 
-## Expiration
-
-If you want to invalidate the cache after a certain period of time, you can use `:expired_in`.
-
-```elixir
-defmodule Api do
-  use Memoize
-  defmemo get_config(), expires_in: 60 * 1000 do
-    call_external_api()
-  end
-end
-```
-
-The cached value is invalidated in the first `get_config/0` function call after `expires_in` milliseconds have elapsed.
-
-To collect expired values, you can use `garbage_collect/0`. It collects all expired values. Its complexity is linear.
-
 ## Invalidate
 
 If you want to invalidate cache, you can use `Memoize.invalidate/{0-3}`.
@@ -185,10 +168,34 @@ These functions are called from `Memoize.invalidate/{0-4}`.
 
 The function is called from `Memoize.garbage_collect/0`.
 
+## MemoryStrategy - Memoize.MemoryStrategy.Default
+
+Default memory strategy.
+It provides only simple and fast features.
+
+### Expiration
+
+If you want to invalidate the cache after a certain period of time, you can use `:expired_in`.
+
+```elixir
+defmodule Api do
+  use Memoize
+  defmemo get_config(), expires_in: 60 * 1000 do
+    call_external_api()
+  end
+end
+```
+
+The cached value is invalidated in the first `get_config/0` function call after `expires_in` milliseconds have elapsed.
+
+To collect expired values, you can use `garbage_collect/0`. It collects all expired values. Its complexity is linear.
+
 ## MemoryStrategy - Memoize.MemoryStrategy.Eviction
 
 `Memoize.MemoryStrategy.Eviction` is one of memory strategy.
-The strategy is, if cached memory size is exceeded `max_threshold`, collect *unused* cached values until it falls below `min_threshold`.
+It provides many features, but slower than `Memoize.MemoryStrategy.Default`.
+
+The strategy is, basically, if cached memory size is exceeded `max_threshold`, collect *unused* cached values until it falls below `min_threshold`.
 
 To use `Memoize.MemoryStrategy.Eviction`, configure `:memory_strategy` as below:
 
@@ -200,6 +207,8 @@ config :memoize, Memoize.MemoryStrategy.Eviction,
   min_threshold: 5_000_000,
   max_threshold: 10_000_000
 ```
+
+### Permanently
 
 If `:permanent` option is specified with `defmemo`, the value won't be collected automatically.
 If you want to remove the value, call `invalidate/{0-3}`.
@@ -214,6 +223,23 @@ end
 ```
 
 Notice the permanented value includes in used memory size. So you should adjust `min_threshold` value.
+
+### Expiration
+
+If `:expires_in` option is specified with `defmemo`, the value will be collected after `:expires_in` milliseconds.
+To be exact, when the `read/3` function is called with any arguments, all expired value will be collected.
+
+```elixir
+defmodule Api do
+  use Memoize
+  defmemo get_config(), expires_in: 60 * 1000 do
+    call_external_api()
+  end
+end
+```
+
+You can both specify `:permanent` and `:expires_in`.
+In the case, the cached value is not collected by `garbage_collect/0` or memory size that exceed `max_threshold`, but after `:expires_in` milliseconds it is collected.
 
 ## Internal
 

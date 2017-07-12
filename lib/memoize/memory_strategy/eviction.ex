@@ -3,6 +3,7 @@ defmodule Memoize.MemoryStrategy.Eviction do
 
   @ets_tab __MODULE__
   @read_history_tab Module.concat(__MODULE__, "ReadHistory")
+  @expiration_tab Module.concat(__MODULE__, "Expiration")
   @opts (if Application.get_env(:memoize, :memory_strategy) == __MODULE__ do
            Application.get_env(:memoize, __MODULE__)
          else
@@ -14,6 +15,7 @@ defmodule Memoize.MemoryStrategy.Eviction do
   def init() do
     :ets.new(@ets_tab, [:public, :set, :named_table, {:read_concurrency, true}])
     :ets.new(@read_history_tab, [:public, :set, :named_table, {:write_concurrency, true}])
+    :ets.new(@expiration_tab, [:public, :ordered_set, :named_table])
   end
 
   def tab(_key) do
@@ -28,19 +30,29 @@ defmodule Memoize.MemoryStrategy.Eviction do
     words * :erlang.system_info(:wordsize)
   end
 
-  def cache(_key, _value, opts) do
+  def cache(key, _value, opts) do
     if used_bytes() > @max_threshold do
       garbage_collect()
     end
+
+    case Keyword.fetch(opts, :expires_in) do
+      {:ok, expires_in} ->
+        expired_at = System.monotonic_time(:millisecond) + expires_in
+        counter = System.unique_integer()
+        :ets.insert(@expiration_tab, {{expired_at, counter}, key})
+      :error -> :ok
+    end
+
     %{permanent: Keyword.get(opts, :permanent, false)}
   end
 
   def read(key, _value, context) do
+    expired? = clear_expired_cache(key)
     unless context.permanent do
       counter = System.unique_integer([:monotonic, :positive])
       :ets.insert(@read_history_tab, {key, counter})
     end
-    :ok
+    if expired?, do: :retry, else: :ok
   end
 
   def invalidate() do
@@ -76,5 +88,29 @@ defmodule Memoize.MemoryStrategy.Eviction do
       end
     end
     :ok
+  end
+
+  def clear_expired_cache(read_key \\ nil, expired? \\ false) do
+    case :ets.first(@expiration_tab) do
+      :"$end_of_table" -> expired?
+      {expired_at, _counter} = key ->
+        case :ets.lookup(@expiration_tab, key) do
+          [] ->
+            # retry
+            clear_expired_cache(read_key, expired?)
+          [{^key, cache_key}] ->
+            now = System.monotonic_time(:millisecond)
+            if now > expired_at do
+              invalidate(cache_key)
+              :ets.delete(@expiration_tab, key)
+              expired? = expired? || (cache_key == read_key)
+              # next
+              clear_expired_cache(read_key, expired?)
+            else
+              # completed
+              expired?
+            end
+        end
+    end
   end
 end
