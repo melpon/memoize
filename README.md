@@ -169,7 +169,7 @@ Notice the permanented value includes in used memory size. So you should adjust 
 ### Expiration
 
 If `:expires_in` option is specified with `defmemo`, the value will be collected after `:expires_in` milliseconds.
-To be exact, when the `read/3` function is called with any arguments, all expired value will be collected.
+To be exact, when the `read/3` function is called with any arguments, all expired values will be collected.
 
 ```elixir
 defmodule Api do
@@ -220,7 +220,7 @@ config :memoize,
   memory_strategy: YourAwesomeApp.ExcellentMemoryStrategy
 ```
 
-`tab/1`, `read/3`, `invalidate/{0-1}`, `garbage_collect/0` are called concurrently.
+Notice `tab/1`, `read/3`, `invalidate/{0-1}`, `garbage_collect/0` are called concurrently.
 `cache/3` is not called concurrently, but other functions are called concurrently while `cache/3` is called by a process.
 
 ### init/0
