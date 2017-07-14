@@ -1,8 +1,8 @@
 defmodule Memoize.Cache do
-  @memory_strategy Memoize.Application.memory_strategy()
+  @cache_strategy Memoize.Application.cache_strategy()
 
   defp tab(key) do
-    @memory_strategy.tab(key)
+    @cache_strategy.tab(key)
   end
 
   defp compare_and_swap(key, :nothing, value) do
@@ -52,7 +52,7 @@ defmodule Memoize.Cache do
             fun.()
           else
             result ->
-              context = @memory_strategy.cache(key, result, opts)
+              context = @cache_strategy.cache(key, result, opts)
               waiter_pids = set_result_and_get_waiter_pids(key, result, context)
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
@@ -99,7 +99,7 @@ defmodule Memoize.Cache do
 
       # completed
       [{^key, {:completed, value, context}}] ->
-        case @memory_strategy.read(key, value, context) do
+        case @cache_strategy.read(key, value, context) do
           :retry -> get_or_run(key, fun)
           :ok -> value
         end
@@ -107,14 +107,14 @@ defmodule Memoize.Cache do
   end
 
   def invalidate() do
-    @memory_strategy.invalidate()
+    @cache_strategy.invalidate()
   end
 
   def invalidate(key) do
-    @memory_strategy.invalidate(key)
+    @cache_strategy.invalidate(key)
   end
 
   def garbage_collect() do
-    @memory_strategy.garbage_collect()
+    @cache_strategy.garbage_collect()
   end
 end

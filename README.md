@@ -87,29 +87,29 @@ Memoize.invalidate()
 
 Notice: `Memoize.invalidate/{0-2}`'s complexity is linear. Therefore, it takes a long time if `Memoize` has many cached values.
 
-## Memory Strategy
+## Cache Strategy
 
-Memory strategy is a behaviour to management cached values.
+Cache strategy is a behaviour to management cached values.
 
-By default, the memory strategy is `Memoize.MemoryStrategy.Default`.
+By default, the caching strategy is `Memoize.CacheStrategy.Default`.
 
-If you want to change the memory strategy, configure `:memory_strategy` in `:memoize` application.
+If you want to change the caching strategy, configure `:cache_strategy` in `:memoize` application.
 
 ```elixir
 config :memoize,
-  memory_strategy: Memoize.MemoryStrategy.Eviction
+  cache_strategy: Memoize.CacheStrategy.Eviction
 ```
 
-WARNING: A memory strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change memory strategy.
+WARNING: A caching strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change the caching strategy.
 
-`memoize` provides below memory strategies.
+`memoize` provides below caching strategies.
 
-- `Memoize.MemoryStrategy.Default`
-- `Memoize.MemoryStrategy.Eviction`
+- `Memoize.CacheStrategy.Default`
+- `Memoize.CacheStrategy.Eviction`
 
-## Memory Strategy - Memoize.MemoryStrategy.Default
+## Cache Strategy - Memoize.CacheStrategy.Default
 
-Default memory strategy.
+Default caching strategy.
 It provides only simple and fast features.
 
 Basically, cached values is not collected automatically.
@@ -132,20 +132,20 @@ The cached value is invalidated in the first `get_config/0` function call after 
 
 To collect expired values, you can use `garbage_collect/0`. It collects all expired values. Its complexity is linear.
 
-## Memory Strategy - Memoize.MemoryStrategy.Eviction
+## Cache Strategy - Memoize.CacheStrategy.Eviction
 
-`Memoize.MemoryStrategy.Eviction` is one of memory strategy.
-It provides many features, but slower than `Memoize.MemoryStrategy.Default`.
+`Memoize.CacheStrategy.Eviction` is one of caching strategy.
+It provides many features, but slower than `Memoize.CacheStrategy.Default`.
 
 The strategy is, basically, if cached memory size is exceeded `max_threshold`, *unused* cached values are collected until memory size falls below `min_threshold`.
 
-To use `Memoize.MemoryStrategy.Eviction`, configure `:memory_strategy` as below:
+To use `Memoize.CacheStrategy.Eviction`, configure `:cache_strategy` as below:
 
 ```elixir
 config :memoize,
-  memory_strategy: Memoize.MemoryStrategy.Eviction
+  cache_strategy: Memoize.CacheStrategy.Eviction
 
-config :memoize, Memoize.MemoryStrategy.Eviction,
+config :memoize, Memoize.CacheStrategy.Eviction,
   min_threshold: 5_000_000,
   max_threshold: 10_000_000
 ```
@@ -183,12 +183,12 @@ end
 You can both specify `:permanent` and `:expires_in`.
 In the case, the cached value is not collected by `garbage_collect/0` or memory size that exceed `max_threshold`, but after `:expires_in` milliseconds it is collected.
 
-## Memory Strategy - Your Strategy
+## Cache Strategy - Your Strategy
 
-You can customize memory strategy.
+You can customize caching strategy.
 
 ```elixir
-defmodule Memoize.MemoryStrategy do
+defmodule Memoize.CacheStrategy do
   @callback init() :: any
   @callback tab(any) :: atom
   @callback cache(any, any, Keyword.t) :: any
@@ -199,11 +199,11 @@ defmodule Memoize.MemoryStrategy do
 end
 ```
 
-If you want to use a customized memory strategy, implement `Memoize.MemoryStrategy` behaviour.
+If you want to use a customized caching strategy, implement `Memoize.CacheStrategy` behaviour.
 
 ```elixir
-defmodule YourAwesomeApp.ExcellentMemoryStrategy do
-  @behaviour Memoize.MemoryStrategy
+defmodule YourAwesomeApp.ExcellentCacheStrategy do
+  @behaviour Memoize.CacheStrategy
 
   def init() do
     ...
@@ -213,11 +213,11 @@ defmodule YourAwesomeApp.ExcellentMemoryStrategy do
 end
 ```
 
-Then, configure `:memory_strategy` in `:memoize` application.
+Then, configure `:cache_strategy` in `:memoize` application.
 
 ```elixir
 config :memoize,
-  memory_strategy: YourAwesomeApp.ExcellentMemoryStrategy
+  cache_strategy: YourAwesomeApp.ExcellentCacheStrategy
 ```
 
 Notice `tab/1`, `read/3`, `invalidate/{0-1}`, `garbage_collect/0` are called concurrently.

@@ -1,4 +1,4 @@
-defmodule Memoize.MemoryStrategy do
+defmodule Memoize.CacheStrategy do
   @callback init() :: any
   @callback tab(any) :: atom
   @callback cache(any, any, Keyword.t) :: any

@@ -4,7 +4,7 @@ defmodule Memoize.Application do
   @behaviour Application
   @behaviour Supervisor
 
-  @memory_strategy Application.get_env(:memoize, :memory_strategy, Memoize.MemoryStrategy.Default)
+  @cache_strategy Application.get_env(:memoize, :cache_strategy, Memoize.CacheStrategy.Default)
 
   def start(_type, _args) do
     Supervisor.start_link(__MODULE__, [], strategy: :one_for_one)
@@ -15,11 +15,11 @@ defmodule Memoize.Application do
   end
 
   def init(_) do
-    @memory_strategy.init()
+    @cache_strategy.init()
     Supervisor.Spec.supervise([], strategy: :one_for_one)
   end
 
-  def memory_strategy() do
-    @memory_strategy
+  def cache_strategy() do
+    @cache_strategy
   end
 end

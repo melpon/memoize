@@ -1,5 +1,5 @@
-defmodule Memoize.MemoryStrategy.Default do
-  @behaviour Memoize.MemoryStrategy
+defmodule Memoize.CacheStrategy.Default do
+  @behaviour Memoize.CacheStrategy
 
   @ets_tab __MODULE__
 

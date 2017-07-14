@@ -1,10 +1,10 @@
-defmodule Memoize.MemoryStrategy.Eviction do
-  @behaviour Memoize.MemoryStrategy
+defmodule Memoize.CacheStrategy.Eviction do
+  @behaviour Memoize.CacheStrategy
 
   @ets_tab __MODULE__
   @read_history_tab Module.concat(__MODULE__, "ReadHistory")
   @expiration_tab Module.concat(__MODULE__, "Expiration")
-  @opts (if Application.get_env(:memoize, :memory_strategy) == __MODULE__ do
+  @opts (if Application.get_env(:memoize, :cache_strategy) == __MODULE__ do
            Application.get_env(:memoize, __MODULE__)
          else
            []
