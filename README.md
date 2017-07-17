@@ -15,7 +15,7 @@ Add `:memoize` to your `mix.exs` dependencies:
 
 ```elixir
 defp deps do
-  [{:memoize, "~> 1.0.0"}]
+  [{:memoize, "~> 1.2"}]
 end
 ```
 
@@ -112,7 +112,7 @@ WARNING: A caching strategy module is determined at *compile time*. It mean you 
 Default caching strategy.
 It provides only simple and fast features.
 
-Basically, cached values is not collected automatically.
+Basically, cached values are not collected automatically.
 To collect cached values, call `invalidate/{0-4}`, call `garbage_collect/0` or specify `:expires_in` with `defmemo`.
 
 ### Expiration
