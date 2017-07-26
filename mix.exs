@@ -3,8 +3,8 @@ defmodule Memoize.Mixfile do
 
   def project do
     [app: :memoize,
-     version: "1.2.0",
-     elixir: "~> 1.4.5",
+     version: "1.2.1",
+     elixir: "~> 1.4.5 or ~> 1.5",
      description: "A memoization macro for elixir using CAS on ETS",
      package: [maintainers: ["melpon"],
                licenses: ["MIT"],
