@@ -57,7 +57,7 @@ defmodule Memoize.Cache do
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
                                     end)
-              get_or_run(key, fun)
+              get_or_run(key, fun, opts)
           rescue
             error ->
               # the status should be :running
@@ -68,7 +68,7 @@ defmodule Memoize.Cache do
               reraise error, System.stacktrace()
           end
         else
-          get_or_run(key, fun)
+          get_or_run(key, fun, opts)
         end
 
       # running
@@ -92,15 +92,15 @@ defmodule Memoize.Cache do
             0 -> :ok
           end
 
-          get_or_run(key, fun)
+          get_or_run(key, fun, opts)
         else
-          get_or_run(key, fun)
+          get_or_run(key, fun, opts)
         end
 
       # completed
       [{^key, {:completed, value, context}}] ->
         case @cache_strategy.read(key, value, context) do
-          :retry -> get_or_run(key, fun)
+          :retry -> get_or_run(key, fun, opts)
           :ok -> value
         end
     end

@@ -106,6 +106,9 @@ defmodule Memoize.CacheTest do
       2 ->
         # second call
         20
+      3 ->
+        # third call
+        30
     end
   end
 
@@ -117,6 +120,10 @@ defmodule Memoize.CacheTest do
     Process.sleep(120)
     assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
     assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
+    # wait to expire the cache
+    Process.sleep(120)
+    assert 30 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
+    assert 30 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 100) end, expires_in: 100)
   end
 
   @tag skip: System.get_env("MEMOIZE_TEST_MODE") != "Memoize.CacheStrategy.Default"
