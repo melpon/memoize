@@ -5,7 +5,7 @@ defmodule Memoize.Mixfile do
     [app: :memoize,
      version: "1.2.2",
      elixir: "~> 1.4.5 or ~> 1.5",
-     description: "A memoization macro for elixir using CAS on ETS",
+     description: "A method caching macro for elixir using CAS on ETS",
      package: [maintainers: ["melpon"],
                licenses: ["MIT"],
                links: %{"GitHub" => "https://github.com/melpon/memoize"}],
