@@ -41,15 +41,15 @@ defmodule Memoize do
         Memoize.Cache.get_or_run({__MODULE__, :foo, [t1, t2, t3]}, fn -> __foo_memoize(t1, t2, t3) end)
       end
 
-      defmemo __foo_memoize(0, y) do
+      def __foo_memoize(0, y) do
         y
       end
 
-      defmemo __foo_memoize(x, y) when x == 1 do
+      def __foo_memoize(x, y) when x == 1 do
         y * z
       end
 
-      defmemo __foo_memoize(x, y, z \\ 0) when x == 2 do
+      def __foo_memoize(x, y, z \\ 0) when x == 2 do
         y * z
       end
 
