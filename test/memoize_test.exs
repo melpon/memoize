@@ -103,4 +103,25 @@ defmodule MemoizeTest do
   test "tarai" do
     assert 12 == Tarai.tarai(12, 6, 0)
   end
+
+  defmemo accepts_map_type(value) do
+    value
+  end
+
+  test "accepts map type" do
+    value = DateTime.from_iso8601("2000-02-29T06:20:00Z")
+    assert value == accepts_map_type(value)
+    map = %{a: 10, b: 20}
+    nested_map = %{c: 30, d: map}
+    keyword = [a: 10, b: 20]
+    tuple = {{:a, 10}, {:b, 20}}
+    fun = fn -> :ok end
+    gocha = {map, nested_map, keyword, tuple, fun}
+    assert map == accepts_map_type(map)
+    assert nested_map == accepts_map_type(nested_map)
+    assert keyword == accepts_map_type(keyword)
+    assert tuple == accepts_map_type(tuple)
+    assert fun == accepts_map_type(fun)
+    assert gocha == accepts_map_type(gocha)
+  end
 end

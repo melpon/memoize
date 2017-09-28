@@ -41,7 +41,47 @@ defmodule Memoize.Cache do
     end
   end
 
+  @map_type :memoize_map_type
+
+  # :ets.select_replace/2 does not accept map type.
+  # So normalize_key/1 convert map type to list type recursively.
+  defp normalize_key(map) when is_map(map) do
+    kvs = map |> Map.to_list() |> Enum.sort_by(fn {key, _} -> key end)
+    xs =
+      for {key, value} <- kvs do
+        {normalize_key(key), normalize_key(value)}
+      end
+    [@map_type | xs]
+  end
+  defp normalize_key(key) when is_list(key) do
+    for x <- key do
+      normalize_key(x)
+    end
+  end
+  defp normalize_key({}), do: {}
+  # tuple optimization
+  defp normalize_key({a}), do: {normalize_key(a)}
+  defp normalize_key({a, b}), do: {normalize_key(a), normalize_key(b)}
+  defp normalize_key({a, b, c}), do: {normalize_key(a), normalize_key(b), normalize_key(c)}
+  defp normalize_key({a, b, c, d}), do: {normalize_key(a), normalize_key(b), normalize_key(c), normalize_key(d)}
+  defp normalize_key(key) when is_tuple(key) do
+    size = tuple_size(key)
+    Enum.reduce(0..(size - 1), key, fn n, key ->
+      value = elem(key, n)
+      put_elem(key, n, normalize_key(value))
+    end)
+  end
+  defp normalize_key(key) do
+    key
+  end
+
   def get_or_run(key, fun, opts \\ []) do
+    key = normalize_key(key)
+    do_get_or_run(key, fun, opts)
+  end
+
+  defp do_get_or_run(key, fun, opts) do
+    key = normalize_key(key)
     case :ets.lookup(tab(key), key) do
       # not started
       [] ->
@@ -57,7 +97,7 @@ defmodule Memoize.Cache do
               Enum.map(waiter_pids, fn {pid, _} ->
                                       send(pid, {self(), :completed})
                                     end)
-              get_or_run(key, fun, opts)
+              do_get_or_run(key, fun, opts)
           rescue
             error ->
               # the status should be :running
@@ -68,7 +108,7 @@ defmodule Memoize.Cache do
               reraise error, System.stacktrace()
           end
         else
-          get_or_run(key, fun, opts)
+          do_get_or_run(key, fun, opts)
         end
 
       # running
@@ -92,15 +132,15 @@ defmodule Memoize.Cache do
             0 -> :ok
           end
 
-          get_or_run(key, fun, opts)
+          do_get_or_run(key, fun, opts)
         else
-          get_or_run(key, fun, opts)
+          do_get_or_run(key, fun, opts)
         end
 
       # completed
       [{^key, {:completed, value, context}}] ->
         case @cache_strategy.read(key, value, context) do
-          :retry -> get_or_run(key, fun, opts)
+          :retry -> do_get_or_run(key, fun, opts)
           :ok -> value
         end
     end
