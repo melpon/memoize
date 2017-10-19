@@ -87,6 +87,20 @@ Memoize.invalidate()
 
 Notice: `Memoize.invalidate/{0-2}`'s complexity is linear. Therefore, it takes a long time if `Memoize` has many cached values.
 
+## Caching Partial Arguments
+
+If you want to cache with partial arguments, use `Memoize.Cache.get_or_run/2` directly.
+
+```elixir
+defmodule Converter do
+  def convert(unique_key, data) do
+    Memoize.Cache.get_or_run({__MODULE__, :resolve, [unique_key]}, fn ->
+      do_convert(data)
+    end)
+  end
+end
+```
+
 ## Cache Strategy
 
 Cache strategy is a behaviour to management cached values.
