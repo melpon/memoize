@@ -87,14 +87,14 @@ defmodule Memoize.Cache do
       [] ->
         # calc
         runner_pid = self()
-        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, %{}}}) do
+        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, []}}) do
           try do
             fun.()
           else
             result ->
               context = @cache_strategy.cache(key, result, opts)
               waiter_pids = set_result_and_get_waiter_pids(key, result, context)
-              Enum.map(waiter_pids, fn {pid, _} ->
+              Enum.map(waiter_pids, fn pid ->
                                       send(pid, {self(), :completed})
                                     end)
               do_get_or_run(key, fun, opts)
@@ -102,7 +102,7 @@ defmodule Memoize.Cache do
             error ->
               # the status should be :running
               waiter_pids = delete_and_get_waiter_pids(key)
-              Enum.map(waiter_pids, fn {pid, _} ->
+              Enum.map(waiter_pids, fn pid ->
                                       send(pid, {self(), :failed})
                                     end)
               reraise error, System.stacktrace()
@@ -113,7 +113,7 @@ defmodule Memoize.Cache do
 
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
-        waiter_pids = Map.put(waiter_pids, self(), :ignore)
+        waiter_pids = [self() | waiter_pids]
         if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
           ref = Process.monitor(runner_pid)
           receive do
