@@ -274,6 +274,24 @@ These functions are called from `Memoize.invalidate/{0-4}`.
 
 The function is called from `Memoize.garbage_collect/0`.
 
+## Performance
+
+1. Generate 10,000 processes.
+2. Call 1 or 100 time(s) a memoized function for each processes. The argument of that function is random between 1 and 100.
+3. Run 5 times each benchmarks and calculate average.
+
+Calling 1 time a memoized function means measurement of writing speed.
+Calling 100 time a memoized function means measurement of writing and reading speed.
+
+Result:
+
+| Module                                       | 1 time    | 100 times | Remarks |
+| -------------------------------------------- | --------- | --------- | ------- |
+| memoize(Default)                             | 211 ms    | 999 ms    |         |
+| memoize(Eviction)                            | 192 ms    | 1,267 ms  |         |
+| [`defmemo`](https://hex.pm/packages/defmemo) | 233 ms    | 5,486 ms  | A memoized function was called multiple times. |
+| [`cachex`](https://hex.pm/packages/cachex)   | 10,234 ms | 19,468 ms | Using transaction to avoid that a memoized function is called multiple times. |
+
 ## Internal
 
 `Memoize` is using CAS (compare-and-swap) on ETS.
