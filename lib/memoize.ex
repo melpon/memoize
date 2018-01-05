@@ -1,4 +1,7 @@
 defmodule Memoize do
+  @moduledoc """
+  #{File.read!("README.md")}
+  """
 
   defmacro __using__(_) do
     quote do
