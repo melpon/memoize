@@ -22,6 +22,7 @@ defmodule Memoize.Cache do
   defp set_result_and_get_waiter_pids(key, result, context) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
+
     if compare_and_swap(key, expected, {key, {:completed, result, context}}) do
       waiter_pids
     else
@@ -33,6 +34,7 @@ defmodule Memoize.Cache do
   defp delete_and_get_waiter_pids(key) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
+
     if compare_and_swap(key, expected, :nothing) do
       waiter_pids
     else
@@ -47,30 +49,39 @@ defmodule Memoize.Cache do
   # So normalize_key/1 convert map type to list type recursively.
   defp normalize_key(map) when is_map(map) do
     kvs = map |> Map.to_list() |> Enum.sort_by(fn {key, _} -> key end)
+
     xs =
       for {key, value} <- kvs do
         {normalize_key(key), normalize_key(value)}
       end
+
     [@map_type | xs]
   end
+
   defp normalize_key(key) when is_list(key) do
     for x <- key do
       normalize_key(x)
     end
   end
+
   defp normalize_key({}), do: {}
   # tuple optimization
   defp normalize_key({a}), do: {normalize_key(a)}
   defp normalize_key({a, b}), do: {normalize_key(a), normalize_key(b)}
   defp normalize_key({a, b, c}), do: {normalize_key(a), normalize_key(b), normalize_key(c)}
-  defp normalize_key({a, b, c, d}), do: {normalize_key(a), normalize_key(b), normalize_key(c), normalize_key(d)}
+
+  defp normalize_key({a, b, c, d}),
+    do: {normalize_key(a), normalize_key(b), normalize_key(c), normalize_key(d)}
+
   defp normalize_key(key) when is_tuple(key) do
     size = tuple_size(key)
+
     Enum.reduce(0..(size - 1), key, fn n, key ->
       value = elem(key, n)
       put_elem(key, n, normalize_key(value))
     end)
   end
+
   defp normalize_key(key) do
     key
   end
@@ -82,11 +93,13 @@ defmodule Memoize.Cache do
 
   defp do_get_or_run(key, fun, opts) do
     key = normalize_key(key)
+
     case :ets.lookup(tab(key), key) do
       # not started
       [] ->
         # calc
         runner_pid = self()
+
         if compare_and_swap(key, :nothing, {key, {:running, runner_pid, []}}) do
           try do
             fun.()
@@ -94,17 +107,21 @@ defmodule Memoize.Cache do
             result ->
               context = @cache_strategy.cache(key, result, opts)
               waiter_pids = set_result_and_get_waiter_pids(key, result, context)
+
               Enum.map(waiter_pids, fn pid ->
-                                      send(pid, {self(), :completed})
-                                    end)
+                send(pid, {self(), :completed})
+              end)
+
               do_get_or_run(key, fun, opts)
           rescue
             error ->
               # the status should be :running
               waiter_pids = delete_and_get_waiter_pids(key)
+
               Enum.map(waiter_pids, fn pid ->
-                                      send(pid, {self(), :failed})
-                                    end)
+                send(pid, {self(), :failed})
+              end)
+
               reraise error, System.stacktrace()
           end
         else
@@ -114,12 +131,14 @@ defmodule Memoize.Cache do
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
         waiter_pids = [self() | waiter_pids]
+
         if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
           ref = Process.monitor(runner_pid)
+
           receive do
             {^runner_pid, :completed} -> :ok
             {^runner_pid, :failed} -> :ok
-            {:"DOWN", ^ref, :process, ^runner_pid, _reason} -> :ok
+            {:DOWN, ^ref, :process, ^runner_pid, _reason} -> :ok
           after
             5000 -> :ok
           end

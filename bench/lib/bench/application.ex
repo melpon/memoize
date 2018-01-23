@@ -3,7 +3,7 @@ defmodule Bench.Application do
 
   def start(_type, _args) do
     children = [
-      Supervisor.Spec.worker(Cachex, [:my_cache, [transactions: true], []]),
+      Supervisor.Spec.worker(Cachex, [:my_cache, [transactions: true], []])
     ]
 
     opts = [strategy: :one_for_one, name: Bench.Supervisor]

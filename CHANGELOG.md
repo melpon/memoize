@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.6
+
+- Apply elixir formatter
+
 ## 1.2.5
 
 - Update a dependency `ex_doc`

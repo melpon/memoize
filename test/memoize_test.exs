@@ -58,9 +58,9 @@ defmodule MemoizeTest do
     assert 1 == Memoize.invalidate()
   end
 
-  defmemo nothing_do(x)
-  defmemo nothing_do(x) when x == 0, do: 0
-  defmemo nothing_do(x) when x == 1, do: x * 2
+  defmemo(nothing_do(x))
+  defmemo(nothing_do(x) when x == 0, do: 0)
+  defmemo(nothing_do(x) when x == 1, do: x * 2)
 
   test "even if the `def` function has not `do`, defmemo is passed" do
     assert 0 == nothing_do(0)
@@ -92,11 +92,10 @@ defmodule MemoizeTest do
 
   defmodule Tarai do
     use Memoize
-    defmemo tarai(x, y, _z) when x <= y, do: y
+    defmemo(tarai(x, y, _z) when x <= y, do: y)
+
     defmemo tarai(x, y, z) do
-      tarai(tarai(x - 1, y, z),
-            tarai(y - 1, z, x),
-            tarai(z - 1, x, y))
+      tarai(tarai(x - 1, y, z), tarai(y - 1, z, x), tarai(z - 1, x, y))
     end
   end
 

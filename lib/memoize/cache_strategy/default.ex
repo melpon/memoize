@@ -16,10 +16,13 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Default) do
 
     def cache(_key, _value, opts) do
       expires_in = Keyword.get(opts, :expires_in, :infinity)
-      expired_at = case expires_in do
-                     :infinity -> :infinity
-                     value -> System.monotonic_time(:millisecond) + value
-                   end
+
+      expired_at =
+        case expires_in do
+          :infinity -> :infinity
+          value -> System.monotonic_time(:millisecond) + value
+        end
+
       expired_at
     end
 
@@ -42,7 +45,11 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Default) do
 
     def garbage_collect() do
       expired_at = System.monotonic_time(:millisecond)
-      :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :"$1"}}, [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}])
+
+      :ets.select_delete(@ets_tab, [
+        {{:_, {:completed, :_, :"$1"}},
+         [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}
+      ])
     end
   end
 end

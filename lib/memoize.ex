@@ -5,12 +5,9 @@ defmodule Memoize do
 
   defmacro __using__(_) do
     quote do
-      import Memoize, only: [defmemo: 1,
-                             defmemo: 2,
-                             defmemo: 3,
-                             defmemop: 1,
-                             defmemop: 2,
-                             defmemop: 3]
+      import Memoize,
+        only: [defmemo: 1, defmemo: 2, defmemo: 3, defmemop: 1, defmemop: 2, defmemop: 3]
+
       @memoize_memodefs []
       @memoize_origdefined %{}
       @before_compile Memoize
@@ -77,13 +74,19 @@ defmodule Memoize do
 
   defp resolve_expr_or_opts(expr_or_opts) do
     cond do
-      expr_or_opts == nil -> {[], nil}
+      expr_or_opts == nil ->
+        {[], nil}
+
       # expr_or_opts is expr
-      Keyword.has_key?(expr_or_opts, :do) -> {[], expr_or_opts}
+      Keyword.has_key?(expr_or_opts, :do) ->
+        {[], expr_or_opts}
+
       # expr_or_opts is opts
-      true -> {expr_or_opts, nil}
+      true ->
+        {expr_or_opts, nil}
     end
   end
+
   defp define(method, call, _opts, nil) do
     # declare function
     quote do
@@ -97,9 +100,10 @@ defmodule Memoize do
   defp define(method, call, opts, expr) do
     {memocall, fun} = init_defmemo(call)
 
-    register_memodef = quote bind_quoted: [memocall: Macro.escape(memocall), expr: Macro.escape(expr)] do
-                         @memoize_memodefs [{memocall, expr} | @memoize_memodefs]
-                       end
+    register_memodef =
+      quote bind_quoted: [memocall: Macro.escape(memocall), expr: Macro.escape(expr)] do
+        @memoize_memodefs [{memocall, expr} | @memoize_memodefs]
+      end
 
     {origname, from, to} = expand_default_args(fun)
     memoname = memoname(origname)
@@ -107,17 +111,31 @@ defmodule Memoize do
     origdefs =
       for n <- from..to do
         args = make_args(n)
+
         quote do
           unless Map.has_key?(@memoize_origdefined, {unquote(origname), unquote(n)}) do
-            @memoize_origdefined Map.put(@memoize_origdefined, {unquote(origname), unquote(n)}, true)
+            @memoize_origdefined Map.put(
+                                   @memoize_origdefined,
+                                   {unquote(origname), unquote(n)},
+                                   true
+                                 )
             case unquote(method) do
               :def ->
                 def unquote(origname)(unquote_splicing(args)) do
-                  Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
+                  Memoize.Cache.get_or_run(
+                    {__MODULE__, unquote(origname), [unquote_splicing(args)]},
+                    fn -> unquote(memoname)(unquote_splicing(args)) end,
+                    unquote(opts)
+                  )
                 end
+
               :defp ->
                 defp unquote(origname)(unquote_splicing(args)) do
-                  Memoize.Cache.get_or_run({__MODULE__, unquote(origname), [unquote_splicing(args)]}, fn -> unquote(memoname)(unquote_splicing(args)) end, unquote(opts))
+                  Memoize.Cache.get_or_run(
+                    {__MODULE__, unquote(origname), [unquote_splicing(args)]},
+                    fn -> unquote(memoname)(unquote_splicing(args)) end,
+                    unquote(opts)
+                  )
                 end
             end
           end
@@ -130,8 +148,12 @@ defmodule Memoize do
   # {:foo, 1, 3} == expand_default_args(quote(do: foo(x, y \\ 10, z \\ 20)))
   defp expand_default_args(fun) do
     {name, args} = Macro.decompose_call(fun)
-    is_default_arg = fn {:\\, _, _} -> true
-                        _ -> false end
+
+    is_default_arg = fn
+      {:\\, _, _} -> true
+      _ -> false
+    end
+
     min_args = Enum.reject(args, is_default_arg)
     {name, length(min_args), length(args)}
   end
@@ -141,6 +163,7 @@ defmodule Memoize do
   defp make_args(0) do
     []
   end
+
   defp make_args(n) do
     for v <- 1..n do
       {:"t#{v}", [], Elixir}
@@ -164,20 +187,23 @@ defmodule Memoize do
       @memoize_memodefs
       |> Enum.reverse()
       |> Enum.map(fn {memocall, expr} ->
-                    Code.eval_quoted({:defp, [], [memocall, expr]}, [], __ENV__)
-                  end)
+        Code.eval_quoted({:defp, [], [memocall, expr]}, [], __ENV__)
+      end)
     end
   end
 
   def invalidate() do
     Memoize.Cache.invalidate()
   end
+
   def invalidate(module) do
     Memoize.Cache.invalidate({module, :_, :_})
   end
+
   def invalidate(module, function) do
     Memoize.Cache.invalidate({module, function, :_})
   end
+
   def invalidate(module, function, arguments) do
     Memoize.Cache.invalidate({module, function, arguments})
   end

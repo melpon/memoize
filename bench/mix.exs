@@ -6,7 +6,7 @@ defmodule Bench.Mixfile do
       app: :bench,
       version: "0.1.0",
       elixir: "~> 1.5",
-      start_permanent: Mix.env == :prod,
+      start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
   end
@@ -15,7 +15,7 @@ defmodule Bench.Mixfile do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Bench.Application, []},
+      mod: {Bench.Application, []}
     ]
   end
 
@@ -25,7 +25,7 @@ defmodule Bench.Mixfile do
       {:memoize, path: ".."},
       {:defmemo, "~> 0.1.1"},
       {:memoizer, "~> 0.1.0"},
-      {:cachex, "~> 2.1"},
+      {:cachex, "~> 2.1"}
     ]
   end
 end

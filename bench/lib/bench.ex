@@ -18,6 +18,7 @@ defmodule Bench do
     receive do
       v ->
         xs = [v | xs]
+
         if length(xs) == @process_count do
           xs
         else
@@ -35,28 +36,34 @@ defmodule Bench do
     pids = gen_processes(@process_count)
     from = self()
     start_at = System.monotonic_time(:millisecond)
+
     for pid <- pids do
       Agent.cast(pid, fn v ->
         for _ <- 1..count do
           n = :rand.uniform(@func_count)
           module.test(n)
         end
+
         send(from, v)
       end)
     end
+
     receive_all([])
     time = System.monotonic_time(:millisecond) - start_at
-    IO.puts "#{module} (#{count}) -> #{time} ms"
+    IO.puts("#{module} (#{count}) -> #{time} ms")
+
     if module == Bench.Memoize do
-      IO.puts "  cache strategy: #{Memoize.cache_strategy()}"
+      IO.puts("  cache strategy: #{Memoize.cache_strategy()}")
     end
 
     for n <- 1..@func_count do
       case :ets.lookup(:counter, n) do
-        [] -> IO.puts "#{n}: not called"
+        [] ->
+          IO.puts("#{n}: not called")
+
         [{_, v}] ->
           if v != 1 do
-            IO.puts "#{n}: #{v} times called"
+            IO.puts("#{n}: #{v} times called")
           end
       end
     end

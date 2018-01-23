@@ -39,6 +39,7 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Eviction) do
         if used_bytes() > @max_threshold do
           garbage_collect()
         end
+
         do_cache(key, value, opts)
       end
     end
@@ -49,7 +50,9 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Eviction) do
           expired_at = System.monotonic_time(:millisecond) + expires_in
           counter = System.unique_integer()
           :ets.insert(@expiration_tab, {{expired_at, counter}, key})
-        :error -> :ok
+
+        :error ->
+          :ok
       end
 
       %{permanent: Keyword.get(opts, :permanent, false)}
@@ -57,10 +60,12 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Eviction) do
 
     def read(key, _value, context) do
       expired? = clear_expired_cache(key)
+
       unless context.permanent do
         counter = System.unique_integer([:monotonic, :positive])
         :ets.insert(@read_history_tab, {key, counter})
       end
+
       if expired?, do: :retry, else: :ok
     end
 
@@ -90,13 +95,14 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Eviction) do
           # remove values ordered by last accessed time until used bytes less than @min_threshold.
           values = :lists.keysort(2, :ets.tab2list(@read_history_tab))
           stream = values |> Stream.filter(fn n -> n != :permanent end) |> Stream.with_index(1)
+
           try do
             for {{key, _}, num_deleted} <- stream do
               :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
               :ets.delete(@read_history_tab, key)
 
               if used_bytes() <= @min_threshold do
-                throw {:break, num_deleted}
+                throw({:break, num_deleted})
               end
             end
           else
@@ -110,18 +116,22 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Eviction) do
 
     def clear_expired_cache(read_key \\ nil, expired? \\ false) do
       case :ets.first(@expiration_tab) do
-        :"$end_of_table" -> expired?
+        :"$end_of_table" ->
+          expired?
+
         {expired_at, _counter} = key ->
           case :ets.lookup(@expiration_tab, key) do
             [] ->
               # retry
               clear_expired_cache(read_key, expired?)
+
             [{^key, cache_key}] ->
               now = System.monotonic_time(:millisecond)
+
               if now > expired_at do
                 invalidate(cache_key)
                 :ets.delete(@expiration_tab, key)
-                expired? = expired? || (cache_key == read_key)
+                expired? = expired? || cache_key == read_key
                 # next
                 clear_expired_cache(read_key, expired?)
               else
