@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.7
+
+- Update dependencies
+
 ## 1.2.6
 
 - Apply elixir formatter

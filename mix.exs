@@ -4,7 +4,7 @@ defmodule Memoize.Mixfile do
   def project do
     [
       app: :memoize,
-      version: "1.2.6",
+      version: "1.2.7",
       elixir: "~> 1.4.5 or ~> 1.5",
       description: "A method caching macro for elixir using CAS on ETS",
       package: [
@@ -25,6 +25,6 @@ defmodule Memoize.Mixfile do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.18.1", only: :dev}]
+    [{:ex_doc, "~> 0.18.3", only: :dev, runtime: false}]
   end
 end
