@@ -123,4 +123,24 @@ defmodule MemoizeTest do
     assert fun == accepts_map_type(fun)
     assert gocha == accepts_map_type(gocha)
   end
+
+  # test defmemo with unquote
+  name = :foobar
+  def unquote(name)()
+  def unquote(name)() do
+    123
+  end
+  def unquote(name)(1, y) when y == 2 do
+    456
+  end
+  def unquote(name)(_x, _y, _z \\ 3) do
+    789
+  end
+
+  test "test defmemo with unquote" do
+    assert 123 == foobar()
+    assert 456 == foobar(1, 2)
+    assert 789 == foobar(2, 2)
+    assert 789 == foobar(1, 2, 3)
+  end
 end
