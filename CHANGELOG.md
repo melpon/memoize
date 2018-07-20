@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.8
+
+- Fix `defmemo unquote(name)()` doesn't work
+
 ## 1.2.7
 
 - Update dependencies
