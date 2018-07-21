@@ -102,25 +102,30 @@ defmodule Memoize do
       case call do
         {:when, meta, [{origname, exprmeta, args}, right]} ->
           quote bind_quoted: [
-            expr: Macro.escape(expr, unquote: true),
-            origname: Macro.escape(origname, unquote: true),
-            exprmeta: Macro.escape(exprmeta, unquote: true),
-            args: Macro.escape(args, unquote: true),
-            meta: Macro.escape(meta, unquote: true),
-            right: Macro.escape(right, unquote: true)
-          ] do
+                  expr: Macro.escape(expr, unquote: true),
+                  origname: Macro.escape(origname, unquote: true),
+                  exprmeta: Macro.escape(exprmeta, unquote: true),
+                  args: Macro.escape(args, unquote: true),
+                  meta: Macro.escape(meta, unquote: true),
+                  right: Macro.escape(right, unquote: true)
+                ] do
             require Memoize
-            @memoize_memodefs [{{:when, meta, [{Memoize.__memoname__(origname), exprmeta, args}, right]}, expr} | @memoize_memodefs]
+
+            fun = {:when, meta, [{Memoize.__memoname__(origname), exprmeta, args}, right]}
+            @memoize_memodefs [{fun, expr} | @memoize_memodefs]
           end
+
         {origname, exprmeta, args} ->
           quote bind_quoted: [
-            expr: Macro.escape(expr, unquote: true),
-            origname: Macro.escape(origname, unquote: true),
-            exprmeta: Macro.escape(exprmeta, unquote: true),
-            args: Macro.escape(args, unquote: true),
-          ] do
+                  expr: Macro.escape(expr, unquote: true),
+                  origname: Macro.escape(origname, unquote: true),
+                  exprmeta: Macro.escape(exprmeta, unquote: true),
+                  args: Macro.escape(args, unquote: true)
+                ] do
             require Memoize
-            @memoize_memodefs [{{Memoize.__memoname__(origname), exprmeta, args}, expr} | @memoize_memodefs]
+
+            fun = {Memoize.__memoname__(origname), exprmeta, args}
+            @memoize_memodefs [{fun, expr} | @memoize_memodefs]
           end
       end
 
@@ -132,15 +137,16 @@ defmodule Memoize do
 
     deffun =
       quote bind_quoted: [
-        fun: Macro.escape(fun, unquote: true),
-        method: Macro.escape(method, unquote: true),
-        opts: Macro.escape(opts, unquote: true)
-      ] do
+              fun: Macro.escape(fun, unquote: true),
+              method: Macro.escape(method, unquote: true),
+              opts: Macro.escape(opts, unquote: true)
+            ] do
         {origname, from, to} = Memoize.__expand_default_args__(fun)
         memoname = Memoize.__memoname__(origname)
 
         for n <- from..to do
           args = Memoize.__make_args__(n)
+
           unless Map.has_key?(@memoize_origdefined, {origname, n}) do
             @memoize_origdefined Map.put(@memoize_origdefined, {origname, n}, true)
             case method do
@@ -165,6 +171,7 @@ defmodule Memoize do
           end
         end
       end
+
     [register_memodef, deffun]
   end
 

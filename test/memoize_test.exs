@@ -127,12 +127,15 @@ defmodule MemoizeTest do
   # test defmemo with unquote
   name = :foobar
   def unquote(name)()
+
   def unquote(name)() do
     123
   end
+
   def unquote(name)(1, y) when y == 2 do
     456
   end
+
   def unquote(name)(_x, _y, _z \\ 3) do
     789
   end
