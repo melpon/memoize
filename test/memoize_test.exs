@@ -126,7 +126,7 @@ defmodule MemoizeTest do
 
   # test defmemo with unquote
   name = :foobar
-  defmemo unquote(name)()
+  defmemo(unquote(name)())
 
   defmemo unquote(name)() do
     123
@@ -140,10 +140,38 @@ defmodule MemoizeTest do
     789
   end
 
-  test "test defmemo with unquote" do
+  test "defmemo with unquote" do
     assert 123 == foobar()
     assert 456 == foobar(1, 2)
     assert 789 == foobar(2, 2)
     assert 789 == foobar(1, 2, 3)
+  end
+
+  defmemo waiter_config(), max_waiters: 1, waiter_sleep_ms: 10 do
+    Process.sleep(100)
+    1234
+  end
+
+  test "defmemo with waiter config" do
+    ps =
+      for _ <- 1..100, into: %{} do
+        {pid, ref} =
+          Process.spawn(
+            fn ->
+              assert 1234 == waiter_config()
+            end,
+            [:monitor]
+          )
+
+        {pid, ref}
+      end
+
+    for _ <- 1..100 do
+      receive do
+        {:DOWN, ref, :process, pid, reason} ->
+          assert ps[pid] == ref
+          assert reason == :normal
+      end
+    end
   end
 end

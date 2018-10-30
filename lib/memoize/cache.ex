@@ -1,5 +1,7 @@
 defmodule Memoize.Cache do
   @cache_strategy Memoize.Application.cache_strategy()
+  @max_waiters Application.get_env(:memoize, :max_waiters, 20)
+  @waiter_sleep_ms Application.get_env(:memoize, :waiter_sleep_ms, 200)
 
   defp tab(key) do
     @cache_strategy.tab(key)
@@ -130,31 +132,37 @@ defmodule Memoize.Cache do
 
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
-        waiter_pids = [self() | waiter_pids]
+        max_waiters = Keyword.get(opts, :max_waiters, @max_waiters)
+        waiters = length(waiter_pids)
 
-        if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
-          ref = Process.monitor(runner_pid)
+        if waiters < max_waiters do
+          waiter_pids = [self() | waiter_pids]
 
-          receive do
-            {^runner_pid, :completed} -> :ok
-            {^runner_pid, :failed} -> :ok
-            {:DOWN, ^ref, :process, ^runner_pid, _reason} -> :ok
-          after
-            5000 -> :ok
+          if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
+            ref = Process.monitor(runner_pid)
+
+            receive do
+              {^runner_pid, :completed} -> :ok
+              {^runner_pid, :failed} -> :ok
+              {:DOWN, ^ref, :process, ^runner_pid, _reason} -> :ok
+            after
+              5000 -> :ok
+            end
+
+            Process.demonitor(ref, [:flush])
+            # flush existing messages
+            receive do
+              {^runner_pid, _} -> :ok
+            after
+              0 -> :ok
+            end
           end
-
-          Process.demonitor(ref, [:flush])
-          # flush existing messages
-          receive do
-            {^runner_pid, _} -> :ok
-          after
-            0 -> :ok
-          end
-
-          do_get_or_run(key, fun, opts)
         else
-          do_get_or_run(key, fun, opts)
+          waiter_sleep_ms = Keyword.get(opts, :waiter_sleep_ms, @waiter_sleep_ms)
+          Process.sleep(waiter_sleep_ms)
         end
+
+        do_get_or_run(key, fun, opts)
 
       # completed
       [{^key, {:completed, value, context}}] ->
