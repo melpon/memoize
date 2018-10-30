@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+
+- Limit waiter process receiving message passing.
+- Update dependencies
+
 ## 1.2.8
 
 - Fix `defmemo unquote(name)()` doesn't work

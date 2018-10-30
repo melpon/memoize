@@ -296,7 +296,7 @@ Result:
 
 Normally, waiter processes are waiting at the end of the computing process using message passing. However, As the number of waiting processes increases, memory is consumed, so we limit this number of the waiters.
 
-Number of waiter processes using message passing are configured as `config.exs` or `defmemo` opts. (prior `defmemo`)
+Number of waiter processes receiving message passing are configured as `config.exs` or `defmemo` opts. (prior `defmemo`)
 
 With `config.exs`:
 
@@ -314,7 +314,7 @@ defmemo foo(), max_waiter: 100, waiter_sleep_ms: 1000 do
 end
 ```
 
-- `:max_waiters`: Number of waiter processes using message passing. (default: 20)
+- `:max_waiters`: Number of waiter processes receiving message passing. (default: 20)
 - `:waiter_sleep_ms`: Time to sleep when the number of waiter processes exceeds `:max_waiters`. (default: 200)
 
 ## Internal
