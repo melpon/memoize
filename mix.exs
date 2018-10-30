@@ -25,6 +25,6 @@ defmodule Memoize.Mixfile do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.18.3", only: :dev, runtime: false}]
+    [{:ex_doc, "~> 0.19.1", only: :dev, runtime: false}]
   end
 end
