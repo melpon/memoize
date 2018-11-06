@@ -2,7 +2,7 @@
 
 ## 1.3.0
 
-- Limit waiter process receiving message passing.
+- Limit count of waiter processes that receive message passing.
 - Update dependencies
 
 ## 1.2.8
