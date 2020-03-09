@@ -15,7 +15,7 @@ Add `:memoize` to your `mix.exs` dependencies:
 
 ```elixir
 defp deps do
-  [{:memoize, "~> 1.2"}]
+  [{:memoize, "~> 1.3"}]
 end
 ```
 
