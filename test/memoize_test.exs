@@ -3,6 +3,8 @@ defmodule MemoizeTest do
 
   use Memoize
 
+  alias Memoize.Cache
+
   defmemo foo(x, y) when x == 0 do
     y
   end
@@ -46,16 +48,16 @@ defmodule MemoizeTest do
   test "invalidates cached values when call invalidate/{0-3}" do
     f = fn -> 10 end
 
-    Memoize.Cache.invalidate()
-    Memoize.Cache.get_or_run({:mod1, :fun1, [1]}, f)
-    Memoize.Cache.get_or_run({:mod1, :fun1, [2]}, f)
-    Memoize.Cache.get_or_run({:mod1, :fun2, [1]}, f)
-    Memoize.Cache.get_or_run({:mod2, :fun1, [1]}, f)
+    Cache.invalidate()
+    Cache.get_or_run(:mod1, :fun1, [1], f)
+    Cache.get_or_run(:mod1, :fun1, [2], f)
+    Cache.get_or_run(:mod1, :fun2, [1], f)
+    Cache.get_or_run(:mod2, :fun1, [1], f)
 
-    assert 1 == Memoize.invalidate(:mod1, :fun1, [1])
-    assert 1 == Memoize.invalidate(:mod1, :fun1)
-    assert 1 == Memoize.invalidate(:mod1)
-    assert 1 == Memoize.invalidate()
+    assert 1 == Cache.invalidate(:mod1, :fun1, [1])
+    assert 1 == Cache.invalidate(:mod1, :fun1)
+    assert 1 == Cache.invalidate(:mod1)
+    assert 1 == Cache.invalidate()
   end
 
   defmemo(nothing_do(x))

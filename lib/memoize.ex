@@ -3,14 +3,29 @@ defmodule Memoize do
   #{File.read!("README.md")}
   """
 
-  defmacro __using__(_) do
+  defmacro __using__(args) do
     quote do
+      @memoize_cache_name Enum.reduce(
+                            Application.get_env(:memoize, :caches, []),
+                            nil,
+                            fn mod, acc ->
+                              if mod == __MODULE__ do
+                                mod
+                              else
+                                acc
+                              end
+                            end
+                          )
       import Memoize,
         only: [defmemo: 1, defmemo: 2, defmemo: 3, defmemop: 1, defmemop: 2, defmemop: 3]
 
       @memoize_memodefs []
       @memoize_origdefined %{}
       @before_compile Memoize
+
+      def __memoize_cache_name__() do
+        @memoize_cache_name
+      end
     end
   end
 
@@ -153,7 +168,9 @@ defmodule Memoize do
               :def ->
                 def unquote(origname)(unquote_splicing(args)) do
                   Memoize.Cache.get_or_run(
-                    {__MODULE__, unquote(origname), [unquote_splicing(args)]},
+                    __MODULE__,
+                    unquote(origname),
+                    [unquote_splicing(args)],
                     fn -> unquote(memoname)(unquote_splicing(args)) end,
                     unquote(opts)
                   )
@@ -162,7 +179,9 @@ defmodule Memoize do
               :defp ->
                 defp unquote(origname)(unquote_splicing(args)) do
                   Memoize.Cache.get_or_run(
-                    {__MODULE__, unquote(origname), [unquote_splicing(args)]},
+                    __MODULE__,
+                    unquote(origname),
+                    [unquote_splicing(args)],
                     fn -> unquote(memoname)(unquote_splicing(args)) end,
                     unquote(opts)
                   )
@@ -210,27 +229,5 @@ defmodule Memoize do
         Code.eval_quoted({:defp, [], [memocall, expr]}, [], __ENV__)
       end)
     end
-  end
-
-  def invalidate() do
-    Memoize.Cache.invalidate()
-  end
-
-  def invalidate(module) do
-    Memoize.Cache.invalidate({module, :_, :_})
-  end
-
-  def invalidate(module, function) do
-    Memoize.Cache.invalidate({module, function, :_})
-  end
-
-  def invalidate(module, function, arguments) do
-    Memoize.Cache.invalidate({module, function, arguments})
-  end
-
-  defdelegate garbage_collect(), to: Memoize.Cache
-
-  def cache_strategy() do
-    Memoize.Application.cache_strategy()
   end
 end

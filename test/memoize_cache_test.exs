@@ -16,11 +16,11 @@ defmodule Memoize.CacheTest do
   end
 
   test "get_or_run" do
-    assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
-    assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
-    assert 1 == Memoize.Cache.invalidate(:key)
-    assert 0 == Memoize.Cache.invalidate(:key)
-    assert 10 == Memoize.Cache.get_or_run(:key, fn -> 10 end)
+    assert 10 == Memoize.Cache.get_or_run(__MODULE__, :func, [], fn -> 10 end)
+    assert 10 == Memoize.Cache.get_or_run(__MODULE__, :func, [], fn -> 10 end)
+    assert 1 == Memoize.Cache.invalidate(__MODULE__, :func, [])
+    assert 0 == Memoize.Cache.invalidate(__MODULE__, :func, [])
+    assert 10 == Memoize.Cache.get_or_run(__MODULE__, :func, [], fn -> 10 end)
   end
 
   defp cache_single(wait_time, result) do
@@ -38,7 +38,7 @@ defmodule Memoize.CacheTest do
 
   test "many processes call get_or_run, but one process only calls the caching function" do
     fun = fn ->
-      assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_single(100, 20) end)
+      assert 20 == Memoize.Cache.get_or_run(__MODULE__, :key, [], fn -> cache_single(100, 20) end)
     end
 
     ps =
@@ -73,12 +73,12 @@ defmodule Memoize.CacheTest do
   test "if caching process is crashed when waiting many processes, one of the processes call the caching function" do
     fun1 = fn ->
       assert_raise(RuntimeError, "failed", fn ->
-        Memoize.Cache.get_or_run(:key, fn -> cache_raise(100, 20) end)
+        Memoize.Cache.get_or_run(__MODULE__, :key, [], fn -> cache_raise(100, 20) end)
       end)
     end
 
     fun2 = fn ->
-      assert 30 == Memoize.Cache.get_or_run(:key, fn -> cache_raise(100, 30) end)
+      assert 30 == Memoize.Cache.get_or_run(__MODULE__, :key, [], fn -> cache_raise(100, 30) end)
     end
 
     ps =
@@ -125,14 +125,18 @@ defmodule Memoize.CacheTest do
   test "at first call after cache is expired, new value is cached" do
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 100) end,
                expires_in: 100
              )
 
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 100) end,
                expires_in: 100
              )
@@ -142,14 +146,18 @@ defmodule Memoize.CacheTest do
 
     assert 20 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 100) end,
                expires_in: 100
              )
 
     assert 20 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 100) end,
                expires_in: 100
              )
@@ -159,14 +167,18 @@ defmodule Memoize.CacheTest do
 
     assert 30 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 100) end,
                expires_in: 100
              )
 
     assert 30 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 100) end,
                expires_in: 100
              )
@@ -176,18 +188,26 @@ defmodule Memoize.CacheTest do
   test "after garbage_collect/0 is called, expired value is collected" do
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key1,
+               [],
                fn -> cache_with_call_count(:key1, 100) end,
                expires_in: 100
              )
 
-    assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
+    assert 10 ==
+             Memoize.Cache.get_or_run(__MODULE__, :key3, [], fn ->
+               cache_with_call_count(:key3, 0)
+             end)
+
     # wait to expire the cache
     Process.sleep(120)
     # insert new value
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key2,
+               [],
                fn -> cache_with_call_count(:key2, 0) end,
                expires_in: 100
              )
@@ -197,19 +217,26 @@ defmodule Memoize.CacheTest do
 
     assert 20 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key1,
+               [],
                fn -> cache_with_call_count(:key1, 0) end,
                expires_in: 100
              )
 
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key2,
+               [],
                fn -> cache_with_call_count(:key2, 0) end,
                expires_in: 100
              )
 
-    assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
+    assert 10 ==
+             Memoize.Cache.get_or_run(__MODULE__, :key3, [], fn ->
+               cache_with_call_count(:key3, 0)
+             end)
   end
 
   def eat_memory(threshold) do
