@@ -11,49 +11,43 @@ defmodule Memoize.Cache do
     end
   end
 
-  defp tab(cache_name, key) do
-    @cache_strategy.tab(cache_name, key)
+  defp compare_and_swap(table, _key, :nothing, value) do
+    :ets.insert_new(table, value)
   end
 
-  defp compare_and_swap(cache_name, key, :nothing, value) do
-    :ets.insert_new(tab(cache_name, key), value)
-  end
-
-  defp compare_and_swap(cache_name, key, expected, :nothing) do
-    num_deleted = :ets.select_delete(tab(cache_name, key), [{expected, [], [true]}])
+  defp compare_and_swap(table, _key, expected, :nothing) do
+    num_deleted = :ets.select_delete(table, [{expected, [], [true]}])
     num_deleted == 1
   end
 
-  defp compare_and_swap(cache_name, key, expected, value) do
-    num_replaced = :ets.select_replace(tab(cache_name, key), [{expected, [], [{:const, value}]}])
+  defp compare_and_swap(table, _key, expected, value) do
+    num_replaced = :ets.select_replace(table, [{expected, [], [{:const, value}]}])
     num_replaced == 1
   end
 
-  defp set_result_and_get_waiter_pids(cache_name, key, result, context) do
+  defp set_result_and_get_waiter_pids(table, key, result, context) do
     runner_pid = self()
 
-    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] =
-      :ets.lookup(tab(cache_name, key), key)
+    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(table, key)
 
-    if compare_and_swap(cache_name, key, expected, {key, {:completed, result, context}}) do
+    if compare_and_swap(table, key, expected, {key, {:completed, result, context}}) do
       waiter_pids
     else
       # retry
-      set_result_and_get_waiter_pids(cache_name, key, result, context)
+      set_result_and_get_waiter_pids(table, key, result, context)
     end
   end
 
-  defp delete_and_get_waiter_pids(cache_name, key) do
+  defp delete_and_get_waiter_pids(table, key) do
     runner_pid = self()
 
-    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] =
-      :ets.lookup(tab(cache_name, key), key)
+    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(table, key)
 
-    if compare_and_swap(cache_name, key, expected, :nothing) do
+    if compare_and_swap(table, key, expected, :nothing) do
       waiter_pids
     else
       # retry
-      delete_and_get_waiter_pids(cache_name, key)
+      delete_and_get_waiter_pids(table, key)
     end
   end
 
@@ -120,38 +114,39 @@ defmodule Memoize.Cache do
       end
 
     key = normalize_key(key)
-    record_metric(%{cache: cache_name, key: key, status: :attempt})
-    do_get_or_run(cache_name, key, fun, start, opts)
+    table = @cache_strategy.tab(cache_name, key)
+    record_metric(%{cache: table, key: key, status: :attempt})
+    do_get_or_run(table, key, fun, start, opts)
   end
 
-  defp do_get_or_run(cache_name, key, fun, start, opts) do
+  defp do_get_or_run(table, key, fun, start, opts) do
     key = normalize_key(key)
 
-    case :ets.lookup(tab(cache_name, key), key) do
+    case :ets.lookup(table, key) do
       # not started
       [] ->
         # calc
         runner_pid = self()
 
-        if compare_and_swap(cache_name, key, :nothing, {key, {:running, runner_pid, []}}) do
-          record_metric(%{cache: cache_name, key: key, start: start, status: :miss})
+        if compare_and_swap(table, key, :nothing, {key, {:running, runner_pid, []}}) do
+          record_metric(%{cache: table, key: key, start: start, status: :miss})
 
           try do
             fun.()
           else
             result ->
-              context = @cache_strategy.cache(cache_name, key, result, opts)
-              waiter_pids = set_result_and_get_waiter_pids(cache_name, key, result, context)
+              context = @cache_strategy.cache(table, key, result, opts)
+              waiter_pids = set_result_and_get_waiter_pids(table, key, result, context)
 
               Enum.map(waiter_pids, fn pid ->
                 send(pid, {self(), :completed})
               end)
 
-              do_get_or_run(cache_name, key, fun, start, opts)
+              do_get_or_run(table, key, fun, start, opts)
           rescue
             error ->
               # the status should be :running
-              waiter_pids = delete_and_get_waiter_pids(cache_name, key)
+              waiter_pids = delete_and_get_waiter_pids(table, key)
 
               Enum.map(waiter_pids, fn pid ->
                 send(pid, {self(), :failed})
@@ -160,12 +155,12 @@ defmodule Memoize.Cache do
               reraise error, System.stacktrace()
           end
         else
-          do_get_or_run(cache_name, key, fun, start, opts)
+          do_get_or_run(table, key, fun, start, opts)
         end
 
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
-        record_metric(%{cache: cache_name, key: key, start: start, status: :wait})
+        record_metric(%{cache: table, key: key, start: start, status: :wait})
         max_waiters = Keyword.get(opts, :max_waiters, @max_waiters)
         waiters = length(waiter_pids)
 
@@ -173,7 +168,7 @@ defmodule Memoize.Cache do
           waiter_pids = [self() | waiter_pids]
 
           if compare_and_swap(
-               cache_name,
+               table,
                key,
                expected,
                {key, {:running, runner_pid, waiter_pids}}
@@ -202,32 +197,24 @@ defmodule Memoize.Cache do
           Process.sleep(waiter_sleep_ms)
         end
 
-        do_get_or_run(cache_name, key, fun, start, opts)
+        do_get_or_run(table, key, fun, start, opts)
 
       # completed
       [{^key, {:completed, value, context}}] ->
-        case @cache_strategy.read(cache_name, key, value, context) do
+        case @cache_strategy.read(table, key, value, context) do
           :retry ->
-            record_metric(%{cache: cache_name, key: key, start: start, status: :stale})
-            do_get_or_run(cache_name, key, fun, start, opts)
+            record_metric(%{cache: table, key: key, start: start, status: :stale})
+            do_get_or_run(table, key, fun, start, opts)
 
           :ok ->
-            record_metric(%{cache: cache_name, key: key, start: start, status: :hit})
+            record_metric(%{cache: table, key: key, start: start, status: :hit})
             value
         end
     end
   end
 
-  defp time_metric(fun, metric) do
-    start = System.monotonic_time()
-    record_metric(metric)
-    result = fun.()
-    record_metric(Map.put(metric, :start, start))
-    result
-  end
-
   def invalidate() do
-    time_metric(fn -> @cache_strategy.invalidate() end, %{
+    time_metric_and_count(fn -> @cache_strategy.invalidate() end, %{
       cache: :all,
       key: {:all},
       status: :invalidate
@@ -235,7 +222,7 @@ defmodule Memoize.Cache do
   end
 
   def invalidate(module) do
-    time_metric(fn -> @cache_strategy.invalidate(module) end, %{
+    time_metric_and_count(fn -> @cache_strategy.invalidate(module) end, %{
       cache: module,
       key: {module},
       status: :invalidate
@@ -243,7 +230,7 @@ defmodule Memoize.Cache do
   end
 
   def invalidate(module, function) do
-    time_metric(fn -> @cache_strategy.invalidate(module, function) end, %{
+    time_metric_and_count(fn -> @cache_strategy.invalidate(module, function) end, %{
       cache: module,
       key: {module, function},
       status: :invalidate
@@ -253,7 +240,7 @@ defmodule Memoize.Cache do
   def invalidate(module, function, arguments) do
     arguments = normalize_key(arguments)
 
-    time_metric(fn -> @cache_strategy.invalidate(module, function, arguments) end, %{
+    time_metric_and_count(fn -> @cache_strategy.invalidate(module, function, arguments) end, %{
       cache: module,
       key: {module, function, arguments},
       status: :invalidate
@@ -261,20 +248,33 @@ defmodule Memoize.Cache do
   end
 
   def garbage_collect() do
-    time_metric(fn -> @cache_strategy.garbage_collect() end, %{
+    time_metric_and_count(fn -> @cache_strategy.garbage_collect() end, %{
       cache: :all,
       status: :garbage_collect
     })
   end
 
   def garbage_collect(module) do
-    time_metric(fn -> @cache_strategy.garbage_collect(module) end, %{
+    time_metric_and_count(fn -> @cache_strategy.garbage_collect(module) end, %{
       cache: module,
       status: :garbage_collect
     })
   end
 
-  def record_metric(metric) do
+  defp time_metric_and_count(fun, metric) do
+    start = System.monotonic_time()
+    record_metric(metric)
+    result = fun.()
+
+    metric
+    |> Map.put(:start, start)
+    |> Map.put(:count, result)
+    |> record_metric()
+
+    result
+  end
+
+  defp record_metric(metric) do
     case Map.get(metric, :start) do
       nil ->
         :telemetry.execute([:memoize, :cache, :start], metric)
@@ -289,7 +289,7 @@ defmodule Memoize.Cache do
     end
   end
 
-  def duration(duration) do
+  defp duration(duration) do
     duration = System.convert_time_unit(duration, :native, :microsecond)
 
     if duration > 1000 do

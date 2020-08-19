@@ -43,17 +43,17 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Default) do
       expired_at
     end
 
-    def read(cache_name, key, _value, expired_at) do
+    def read(table, key, _value, expired_at) do
       if expired_at != :infinity && System.monotonic_time(:millisecond) > expired_at do
-        local_invalidate(cache_name, key)
+        local_invalidate(table, key)
         :retry
       else
         :ok
       end
     end
 
-    defp local_invalidate(cache_name, key) do
-      :ets.select_delete(tab(cache_name), [{{key, {:completed, :_, :_}}, [], [true]}])
+    defp local_invalidate(table, key) do
+      :ets.select_delete(table, [{{key, {:completed, :_, :_}}, [], [true]}])
     end
 
     def invalidate() do
