@@ -180,6 +180,7 @@ defmodule Memoize.Cache do
               {^runner_pid, :failed} -> :ok
               {:DOWN, ^ref, :process, ^runner_pid, _reason} -> :ok
             after
+              # todo: make this configurable
               5000 -> :ok
             end
 

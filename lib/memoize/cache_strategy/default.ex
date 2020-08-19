@@ -58,15 +58,10 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Default) do
 
     def invalidate() do
       # this is only place we have to run get_env, but given we are deleting everything its fine.
-      case Application.get_env(:memoize, :caches) do
-        nil ->
-          :ets.select_delete(tab(nil), [{{:_, {:completed, :_, :_}}, [], [true]}])
-
-        modules ->
-          Enum.reduce(modules, 0, fn module, acc ->
-            :ets.select_delete(tab(module), [{{:_, {:completed, :_, :_}}, [], [true]}]) + acc
-          end)
-      end
+      Application.get_env(:memoize, :caches, [nil])
+      |> Enum.reduce(0, fn cache, acc ->
+        :ets.select_delete(tab(cache), [{{:_, {:completed, :_, :_}}, [], [true]}]) + acc
+      end)
     end
 
     def invalidate(module) do
@@ -100,21 +95,13 @@ if Memoize.CacheStrategy.configured?(Memoize.CacheStrategy.Default) do
     def garbage_collect() do
       expired_at = System.monotonic_time(:millisecond)
       # this is only place we have to run get_env, but given we are deleting everything its fine.
-      case Application.get_env(:memoize, :caches) do
-        nil ->
-          :ets.select_delete(tab(nil), [
-            {{:_, {:completed, :_, :"$1"}},
-             [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}
-          ])
-
-        modules ->
-          Enum.reduce(modules, 0, fn module, acc ->
-            :ets.select_delete(tab(module), [
-              {{:_, {:completed, :_, :"$1"}},
-               [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}
-            ]) + acc
-          end)
-      end
+      Application.get_env(:memoize, :caches, [nil])
+      |> Enum.reduce(0, fn cache, acc ->
+        :ets.select_delete(tab(cache), [
+          {{:_, {:completed, :_, :"$1"}},
+           [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}
+        ]) + acc
+      end)
     end
 
     def garbage_collect(module) do

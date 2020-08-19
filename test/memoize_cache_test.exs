@@ -242,9 +242,10 @@ defmodule Memoize.CacheTest do
   def eat_memory(threshold) do
     try do
       for n <- 1..1_000_000 do
-        assert 10 == Memoize.Cache.get_or_run(n, fn -> 10 end)
+        assert 10 ==
+                 Memoize.Cache.get_or_run(__MODULE__, String.to_atom("key#{n}"), [], fn -> 10 end)
 
-        if threshold <= Memoize.CacheStrategy.Eviction.used_bytes() do
+        if threshold <= Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__) do
           throw(:break)
         end
       end
@@ -262,29 +263,29 @@ defmodule Memoize.CacheTest do
     max_threshold = Keyword.fetch!(opts, :max_threshold)
 
     eat_memory(max_threshold - 100)
-    assert max_threshold - 100 <= Memoize.CacheStrategy.Eviction.used_bytes()
+    assert max_threshold - 100 <= Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
     # read cached values to update last accessed time
-    Memoize.Cache.get_or_run(1, fn -> 20 end)
-    Memoize.Cache.get_or_run(2, fn -> 20 end)
-    Memoize.Cache.get_or_run(3, fn -> 20 end)
+    Memoize.Cache.get_or_run(__MODULE__, :key1, [], fn -> 20 end)
+    Memoize.Cache.get_or_run(__MODULE__, :key2, [], fn -> 20 end)
+    Memoize.Cache.get_or_run(__MODULE__, :key3, [], fn -> 20 end)
     # still exceeded the threshold
-    assert max_threshold - 100 <= Memoize.CacheStrategy.Eviction.used_bytes()
+    assert max_threshold - 100 <= Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
 
     # next inserting is occured garbage collection
-    assert 10 == Memoize.Cache.get_or_run(:gc, fn -> 10 end)
+    assert 10 == Memoize.Cache.get_or_run(__MODULE__, :gc, [], fn -> 10 end)
 
-    used_bytes = Memoize.CacheStrategy.Eviction.used_bytes()
+    used_bytes = Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
     assert min_threshold - 100 <= used_bytes && used_bytes <= min_threshold + 100
 
     # below keys are still cached
-    Memoize.Cache.get_or_run(1, fn -> 10 end)
-    Memoize.Cache.get_or_run(2, fn -> 10 end)
-    Memoize.Cache.get_or_run(3, fn -> 10 end)
-    assert used_bytes == Memoize.CacheStrategy.Eviction.used_bytes()
+    Memoize.Cache.get_or_run(__MODULE__, :key1, [], fn -> 10 end)
+    Memoize.Cache.get_or_run(__MODULE__, :key2, [], fn -> 10 end)
+    Memoize.Cache.get_or_run(__MODULE__, :key3, [], fn -> 10 end)
+    assert used_bytes == Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
 
     # below key is already collected
-    Memoize.Cache.get_or_run(4, fn -> 10 end)
-    assert used_bytes < Memoize.CacheStrategy.Eviction.used_bytes()
+    Memoize.Cache.get_or_run(__MODULE__, :key4, [], fn -> 10 end)
+    assert used_bytes < Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
   end
 
   @tag skip: System.get_env("MEMOIZE_TEST_MODE") != "Memoize.CacheStrategy.Eviction"
@@ -293,19 +294,19 @@ defmodule Memoize.CacheTest do
     min_threshold = Keyword.fetch!(opts, :min_threshold)
 
     eat_memory(min_threshold)
-    assert min_threshold <= Memoize.CacheStrategy.Eviction.used_bytes()
+    assert min_threshold <= Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
 
-    Memoize.Cache.get_or_run(:a, fn -> 10 end)
-    Memoize.Cache.get_or_run(:b, fn -> 10 end)
-    Memoize.Cache.get_or_run(:c, fn -> 10 end)
-    Memoize.garbage_collect()
+    Memoize.Cache.get_or_run(__MODULE__, :a, [], fn -> 10 end)
+    Memoize.Cache.get_or_run(__MODULE__, :b, [], fn -> 10 end)
+    Memoize.Cache.get_or_run(__MODULE__, :c, [], fn -> 10 end)
+    Memoize.Cache.garbage_collect()
 
-    used_bytes = Memoize.CacheStrategy.Eviction.used_bytes()
+    used_bytes = Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
     assert min_threshold > used_bytes
 
     # no effect
-    Memoize.garbage_collect()
-    assert used_bytes == Memoize.CacheStrategy.Eviction.used_bytes()
+    Memoize.Cache.garbage_collect()
+    assert used_bytes == Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
   end
 
   @tag skip: System.get_env("MEMOIZE_TEST_MODE") != "Memoize.CacheStrategy.Eviction"
@@ -313,48 +314,69 @@ defmodule Memoize.CacheTest do
     opts = Application.fetch_env!(:memoize, Memoize.CacheStrategy.Eviction)
     min_threshold = Keyword.fetch!(opts, :min_threshold)
 
-    Memoize.Cache.get_or_run(:key, fn -> 10 end, permanent: true)
+    Memoize.Cache.get_or_run(__MODULE__, :key, [], fn -> 10 end, permanent: true)
     eat_memory(min_threshold)
-    Memoize.garbage_collect()
+    Memoize.Cache.garbage_collect()
 
     # :key's value is not collected
-    assert 10 == Memoize.Cache.get_or_run(:key, fn -> 20 end, permanent: true)
+    assert 10 == Memoize.Cache.get_or_run(__MODULE__, :key, [], fn -> 20 end, permanent: true)
   end
 
   @tag skip: System.get_env("MEMOIZE_TEST_MODE") != "Memoize.CacheStrategy.Eviction"
   test "after expires_in milliseconds have elapsed, all expired value is collected" do
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key,
+               [],
                fn -> cache_with_call_count(:key, 0) end,
                expires_in: 100
              )
 
     assert 10 ==
              Memoize.Cache.get_or_run(
+               __MODULE__,
                :key2,
+               [],
                fn -> cache_with_call_count(:key2, 0) end,
                expires_in: 200
              )
 
     # wait to expire the :key's cache
     Process.sleep(120)
-    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 0) end)
-    assert 10 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end)
+
+    assert 20 ==
+             Memoize.Cache.get_or_run(__MODULE__, :key, [], fn ->
+               cache_with_call_count(:key, 0)
+             end)
+
+    assert 10 ==
+             Memoize.Cache.get_or_run(__MODULE__, :key2, [], fn ->
+               cache_with_call_count(:key2, 0)
+             end)
+
     # wait to expire the :key2's cache
     Process.sleep(120)
-    assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_with_call_count(:key, 0) end)
-    assert 20 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end)
+
+    assert 20 ==
+             Memoize.Cache.get_or_run(__MODULE__, :key, [], fn ->
+               cache_with_call_count(:key, 0)
+             end)
+
+    assert 20 ==
+             Memoize.Cache.get_or_run(__MODULE__, :key2, [], fn ->
+               cache_with_call_count(:key2, 0)
+             end)
   end
 
   @tag skip: System.get_env("MEMOIZE_TEST_MODE") != "Memoize.CacheStrategy.Eviction_2"
   test "if :max_threshold is :infinity, cached values are not collected caused by memory size" do
     eat_memory(10_000_000)
-    used_bytes = Memoize.CacheStrategy.Eviction.used_bytes()
-    Memoize.garbage_collect()
-    assert used_bytes == Memoize.CacheStrategy.Eviction.used_bytes()
+    used_bytes = Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
+    Memoize.Cache.garbage_collect()
+    assert used_bytes == Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
     # invalidates explicitly
-    Memoize.invalidate()
-    assert used_bytes > Memoize.CacheStrategy.Eviction.used_bytes()
+    Memoize.Cache.invalidate()
+    assert used_bytes > Memoize.CacheStrategy.Eviction.used_bytes(__MODULE__)
   end
 end
