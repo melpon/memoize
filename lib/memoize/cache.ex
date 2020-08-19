@@ -107,6 +107,7 @@ defmodule Memoize.Cache do
   end
 
   def get_or_run(module, function, args, fun, opts) do
+    start = System.monotonic_time()
     cache_name = cache_name(module)
 
     key =
@@ -119,10 +120,11 @@ defmodule Memoize.Cache do
       end
 
     key = normalize_key(key)
-    do_get_or_run(cache_name, key, fun, opts)
+    record_metric(%{cache: cache_name, key: key, status: :attempt})
+    do_get_or_run(cache_name, key, fun, start, opts)
   end
 
-  defp do_get_or_run(cache_name, key, fun, opts) do
+  defp do_get_or_run(cache_name, key, fun, start, opts) do
     key = normalize_key(key)
 
     case :ets.lookup(tab(cache_name, key), key) do
@@ -132,6 +134,8 @@ defmodule Memoize.Cache do
         runner_pid = self()
 
         if compare_and_swap(cache_name, key, :nothing, {key, {:running, runner_pid, []}}) do
+          record_metric(%{cache: cache_name, key: key, start: start, status: :miss})
+
           try do
             fun.()
           else
@@ -143,7 +147,7 @@ defmodule Memoize.Cache do
                 send(pid, {self(), :completed})
               end)
 
-              do_get_or_run(cache_name, key, fun, opts)
+              do_get_or_run(cache_name, key, fun, start, opts)
           rescue
             error ->
               # the status should be :running
@@ -156,11 +160,12 @@ defmodule Memoize.Cache do
               reraise error, System.stacktrace()
           end
         else
-          do_get_or_run(cache_name, key, fun, opts)
+          do_get_or_run(cache_name, key, fun, start, opts)
         end
 
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
+        record_metric(%{cache: cache_name, key: key, start: start, status: :wait})
         max_waiters = Keyword.get(opts, :max_waiters, @max_waiters)
         waiters = length(waiter_pids)
 
@@ -197,38 +202,100 @@ defmodule Memoize.Cache do
           Process.sleep(waiter_sleep_ms)
         end
 
-        do_get_or_run(cache_name, key, fun, opts)
+        do_get_or_run(cache_name, key, fun, start, opts)
 
       # completed
       [{^key, {:completed, value, context}}] ->
         case @cache_strategy.read(cache_name, key, value, context) do
-          :retry -> do_get_or_run(cache_name, key, fun, opts)
-          :ok -> value
+          :retry ->
+            record_metric(%{cache: cache_name, key: key, start: start, status: :stale})
+            do_get_or_run(cache_name, key, fun, start, opts)
+
+          :ok ->
+            record_metric(%{cache: cache_name, key: key, start: start, status: :hit})
+            value
         end
     end
   end
 
+  defp time_metric(fun, metric) do
+    start = System.monotonic_time()
+    record_metric(metric)
+    result = fun.()
+    record_metric(Map.put(metric, :start, start))
+    result
+  end
+
   def invalidate() do
-    @cache_strategy.invalidate()
+    time_metric(fn -> @cache_strategy.invalidate() end, %{
+      cache: :all,
+      key: {:all},
+      status: :invalidate
+    })
   end
 
   def invalidate(module) do
-    @cache_strategy.invalidate(module)
+    time_metric(fn -> @cache_strategy.invalidate(module) end, %{
+      cache: module,
+      key: {module},
+      status: :invalidate
+    })
   end
 
   def invalidate(module, function) do
-    @cache_strategy.invalidate(module, function)
+    time_metric(fn -> @cache_strategy.invalidate(module, function) end, %{
+      cache: module,
+      key: {module, function},
+      status: :invalidate
+    })
   end
 
   def invalidate(module, function, arguments) do
-    @cache_strategy.invalidate(module, function, normalize_key(arguments))
+    arguments = normalize_key(arguments)
+
+    time_metric(fn -> @cache_strategy.invalidate(module, function, arguments) end, %{
+      cache: module,
+      key: {module, function, arguments},
+      status: :invalidate
+    })
   end
 
   def garbage_collect() do
-    @cache_strategy.garbage_collect()
+    time_metric(fn -> @cache_strategy.garbage_collect() end, %{
+      cache: :all,
+      status: :garbage_collect
+    })
   end
 
   def garbage_collect(module) do
-    @cache_strategy.garbage_collect(module)
+    time_metric(fn -> @cache_strategy.garbage_collect(module) end, %{
+      cache: module,
+      status: :garbage_collect
+    })
+  end
+
+  def record_metric(metric) do
+    case Map.get(metric, :start) do
+      nil ->
+        :telemetry.execute([:memoize, :cache, :start], metric)
+
+      start ->
+        duration = System.monotonic_time() - start
+
+        :telemetry.execute(
+          [:memoize, :cache, :stop],
+          Map.put(metric, :duration, duration(duration))
+        )
+    end
+  end
+
+  def duration(duration) do
+    duration = System.convert_time_unit(duration, :native, :microsecond)
+
+    if duration > 1000 do
+      [duration |> div(1000) |> Integer.to_string(), "ms"]
+    else
+      [Integer.to_string(duration), "µs"]
+    end
   end
 end
