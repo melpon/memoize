@@ -2,6 +2,11 @@ defmodule Memoize.Cache do
   @cache_strategy Memoize.Application.cache_strategy()
   @max_waiters Application.get_env(:memoize, :max_waiters, 20)
   @waiter_sleep_ms Application.get_env(:memoize, :waiter_sleep_ms, 200)
+  @enable_telemetry Application.get_env(:memoize, :enable_telemetry, true)
+
+  def cache_strategy() do
+    @cache_strategy
+  end
 
   def cache_name(module) do
     if function_exported?(module, :__memoize_cache_name__, 0) do
@@ -262,6 +267,10 @@ defmodule Memoize.Cache do
   end
 
   defp time_metric_and_count(fun, metric) do
+    case @enable_telemetry do
+      false ->
+	fun.()
+      true ->
     start = System.monotonic_time()
     record_metric(metric)
     result = fun.()
@@ -272,9 +281,14 @@ defmodule Memoize.Cache do
     |> record_metric()
 
     result
+    end
   end
 
   defp record_metric(metric) do
+    case @enable_telemetry do
+      false ->
+	nil
+      true ->
     case Map.get(metric, :start) do
       nil ->
         :telemetry.execute([:memoize, :cache, :start], metric)
@@ -286,6 +300,7 @@ defmodule Memoize.Cache do
           [:memoize, :cache, :stop],
           Map.put(metric, :duration, duration(duration))
         )
+    end
     end
   end
 
