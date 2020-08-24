@@ -28,6 +28,7 @@ Benchee.run(
   after_scenario: fn input -> Bench.after_scenario(input) end,
   formatters: [
     {Benchee.Formatters.HTML, file: "benchmarks/html/bench.html", auto_open: false},
+    {Benchee.Formatters.Markdown, file: "benchmarks/benchmarks.md"},
     Benchee.Formatters.Console
   ]
 )

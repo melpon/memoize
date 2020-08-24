@@ -20,3 +20,5 @@ erl_crash.dump
 *.ez
 
 /config/config.exs
+
+benchmarks/html

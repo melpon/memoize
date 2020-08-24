@@ -53,6 +53,7 @@ defmodule Memoize.Mixfile do
       {:ex_doc, "~> 0.19.1", only: :dev, runtime: false},
       {:benchee, "~> 1.0", only: :bench},
       {:benchee_html, "~> 1.0", only: :bench},
+      {:benchee_markdown, "~> 0.2.4", only: :bench},
       {:credo, "~> 1.1.0", only: [:dev, :test, :bench], runtime: false},
       {:dialyxir, "~> 1.0.0", only: [:dev, :test, :bench], runtime: false},
       {:excoveralls, "~> 0.10", only: [:dev, :test, :bench]},
