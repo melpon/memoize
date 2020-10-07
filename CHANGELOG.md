@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1
+
+- require Elixir >= 1.9
+- Fix warnings for Elixir 1.11
+- Fix freeze when exit or throw ([#13](https://github.com/melpon/memoize/issues/13))
+- Update dependencies
+
 ## 1.3.0
 
 - Limit count of waiter processes that receive message passing.
