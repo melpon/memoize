@@ -16,7 +16,7 @@ defmodule Memoize.Application do
 
   def init(_) do
     @cache_strategy.init()
-    Supervisor.Spec.supervise([], strategy: :one_for_one)
+    Supervisor.init([], strategy: :one_for_one)
   end
 
   def cache_strategy() do

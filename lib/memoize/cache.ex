@@ -115,8 +115,8 @@ defmodule Memoize.Cache do
               end)
 
               do_get_or_run(key, fun, opts)
-          rescue
-            error ->
+          catch
+            kind, error ->
               # the status should be :running
               waiter_pids = delete_and_get_waiter_pids(key)
 
@@ -124,7 +124,12 @@ defmodule Memoize.Cache do
                 send(pid, {self(), :failed})
               end)
 
-              reraise error, System.stacktrace()
+              error = Exception.normalize(kind, error)
+              if is_exception(error) do
+                reraise error, __STACKTRACE__
+              else
+                apply(:erlang, kind, [error])
+              end
           end
         else
           do_get_or_run(key, fun, opts)
