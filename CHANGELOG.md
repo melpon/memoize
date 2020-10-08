@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2
+
+- Replace `is_exception/1` to `Exception.exception?/1`.
+
 ## 1.3.1
 
 - require Elixir >= 1.9
