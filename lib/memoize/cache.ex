@@ -149,7 +149,16 @@ defmodule Memoize.Cache do
             receive do
               {^runner_pid, :completed} -> :ok
               {^runner_pid, :failed} -> :ok
-              {:DOWN, ^ref, :process, ^runner_pid, _reason} -> :ok
+              {:DOWN, ^ref, :process, ^runner_pid, _reason} ->
+                # in case the running process isn't alive anymore,
+                # it means it crashed and failed to complete
+                compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing)
+
+                Enum.map(waiter_pids, fn pid ->
+                  send(pid, {self(), :failed})
+                end)
+
+                :ok
             after
               5000 -> :ok
             end
