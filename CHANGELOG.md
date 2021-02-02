@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.3
+
+- Fix infinite loop if cache process crashes ([#14](https://github.com/melpon/memoize/pull/14))
+    - @davorbadrov
+
 ## 1.3.2
 
 - Replace `is_exception/1` to `Exception.exception?/1`.

@@ -4,7 +4,7 @@ defmodule Memoize.Mixfile do
   def project do
     [
       app: :memoize,
-      version: "1.3.2",
+      version: "1.3.3",
       elixir: "~> 1.9",
       description: "A method caching macro for elixir using CAS on ETS",
       package: [
