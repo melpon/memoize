@@ -1,4 +1,8 @@
 defmodule Memoize.Cache do
+  @moduledoc """
+  Module documentation for Memoize.Cache.
+  """
+
   @cache_strategy Memoize.Application.cache_strategy()
   @max_waiters Application.get_env(:memoize, :max_waiters, 20)
   @waiter_sleep_ms Application.get_env(:memoize, :waiter_sleep_ms, 200)

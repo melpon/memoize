@@ -1,4 +1,8 @@
 defmodule Memoize.CacheStrategy do
+  @moduledoc """
+  A behaviour module for implementing cache strategy.
+  """
+
   @callback init() :: any
   @callback tab(any) :: atom
   @callback cache(any, any, Keyword.t()) :: any
