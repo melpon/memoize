@@ -1,5 +1,0 @@
-%{"cachex": {:hex, :cachex, "2.1.0", "fad49b4e78d11c6c314e75bd8c9408f5b78cb065c047442798caed10803ee3be", [], [{:eternal, "~> 1.1", [hex: :eternal, repo: "hexpm", optional: false]}], "hexpm"},
-  "defmemo": {:hex, :defmemo, "0.1.1", "44c7efb97b5e9fa88c2ed97d926d6865c781875803d86ebefe127d29d1a0d8d7", [], [], "hexpm"},
-  "deppie": {:hex, :deppie, "1.1.0", "cfb6fcee7dfb64eb78cb8505537971a0805131899326ad469ef10df04520f451", [], [], "hexpm"},
-  "eternal": {:hex, :eternal, "1.1.4", "3a40fd9b9708f79216a6ec8ae886f2b17685dc26b119b9c0403c2b0d3dc1ac69", [], [{:deppie, "~> 1.1", [hex: :deppie, repo: "hexpm", optional: false]}], "hexpm"},
-  "memoizer": {:hex, :memoizer, "0.1.0", "dcefaecfecfc158248771f64a7155a740966f49e15987f3da2a2f14fe4638d68", [], [], "hexpm"}}
