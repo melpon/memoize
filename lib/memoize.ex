@@ -1,6 +1,6 @@
 defmodule Memoize do
   @moduledoc """
-  #{File.read!("README.md")}
+  Module documentation for Memoize.
   """
 
   defmacro __using__(_) do

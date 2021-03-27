@@ -1,12 +1,23 @@
 # Memoize
 
-A memoization macro.
+[![Module Version](https://img.shields.io/hexpm/v/memoize.svg)](https://hex.pm/packages/memoize)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/memoize/)
+[![Total Download](https://img.shields.io/hexpm/dt/memoize.svg)](https://hex.pm/packages/memoize)
+[![License](https://img.shields.io/hexpm/l/memoize.svg)](https://github.com/melpon/memoize/blob/master/LICENSE)
+[![Last Updated](https://img.shields.io/github/last-commit/melpon/memoize.svg)](https://github.com/melpon/memoize/commits/master)
 
-The application available in [hex.pm](https://hex.pm/packages/memoize).
+A memoization macro for Elixir.
+
+> "In computing, memoization or memoisation is an optimization technique used
+> primarily to speed up computer programs by storing the results of expensive
+> function calls and returning the cached result when the same inputs occur
+> again."
+>
+> Source: https://en.wikipedia.org/wiki/Memoization
 
 ## Requirement
 
-- Elixir 1.4.5 or later.
+- Elixir 1.9 or later.
 - Erlang/OTP 20 or later.
 
 ## Installation
@@ -15,7 +26,9 @@ Add `:memoize` to your `mix.exs` dependencies:
 
 ```elixir
 defp deps do
-  [{:memoize, "~> 1.3"}]
+  [
+    {:memoize, "~> 1.3"}
+  ]
 end
 ```
 
@@ -23,7 +36,7 @@ end
 
 If you want to cache a function, `use Memoize` on the module and change `def` to `defmemo`.
 
-for example:
+For example:
 
 ```elixir
 defmodule Fib do
@@ -33,7 +46,7 @@ defmodule Fib do
 end
 ```
 
-this code changes to:
+This code changes to:
 
 ```elixir
 defmodule Fib do
@@ -178,7 +191,7 @@ defmodule Json do
 end
 ```
 
-Notice the permanented value includes in used memory size. So you should adjust `min_threshold` value.
+Notice the permanent value includes in used memory size. So you should adjust `min_threshold` value.
 
 ### Expiration
 
@@ -278,7 +291,7 @@ The function is called from `Memoize.garbage_collect/0`.
 
 Normally, waiter processes are waiting at the end of the computing process using message passing. However, As the number of waiting processes increases, memory is consumed, so we limit this number of the waiters.
 
-Number of waiter processes receiving message passing are configured as `config.exs` or `defmemo` opts. (prior `defmemo`)
+Number of waiter processes receiving message passing are configured as `config.exs` or `defmemo` opts. (prior `defmemo`).
 
 With `config.exs`:
 
@@ -304,3 +317,10 @@ end
 `Memoize` is using CAS (compare-and-swap) on ETS.
 
 CAS is [now available](http://erlang.org/doc/man/ets.html#select_replace-2) in Erlang/OTP 20.
+
+## License
+
+Copyright (c) 2017 melpon
+
+This library is MIT licensed. See the [LICENSE](https://github.com/melpon/memoize/blob/master/LICENSE)
+for details.
