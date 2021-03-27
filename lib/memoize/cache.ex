@@ -125,6 +125,7 @@ defmodule Memoize.Cache do
               end)
 
               error = Exception.normalize(kind, error)
+
               if Exception.exception?(error) do
                 reraise error, __STACKTRACE__
               else
@@ -138,6 +139,7 @@ defmodule Memoize.Cache do
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
         max_waiters = Keyword.get(opts, :max_waiters, @max_waiters)
+        max_waiters = if(max_waiters <= 0, do: 1, else: max_waiters)
         waiters = length(waiter_pids)
 
         if waiters < max_waiters do
@@ -147,8 +149,12 @@ defmodule Memoize.Cache do
             ref = Process.monitor(runner_pid)
 
             receive do
-              {^runner_pid, :completed} -> :ok
-              {^runner_pid, :failed} -> :ok
+              {^runner_pid, :completed} ->
+                :ok
+
+              {^runner_pid, :failed} ->
+                :ok
+
               {:DOWN, ^ref, :process, ^runner_pid, _reason} ->
                 # in case the running process isn't alive anymore,
                 # it means it crashed and failed to complete

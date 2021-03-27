@@ -62,6 +62,7 @@ defmodule Memoize.CacheTest do
         # first call is failed
         Process.sleep(wait_time)
         raise "failed"
+
       _ ->
         # other calls are passed
         Process.sleep(wait_time)
@@ -111,9 +112,11 @@ defmodule Memoize.CacheTest do
       catch
         :exit, :normal ->
           :ok
+
         _, _ ->
           :error
       end
+
     assert :ok == result
     assert 100 == Memoize.Cache.get_or_run(:key, fn -> 100 end)
 
@@ -125,22 +128,23 @@ defmodule Memoize.CacheTest do
       catch
         :throw, :ok ->
           :ok
+
         _, _ ->
           :error
       end
+
     assert :ok == result
     assert 200 == Memoize.Cache.get_or_run(:key2, fn -> 200 end)
-
   end
 
   @tag timeout: 100
   test "doesn't block if caching process exited or crashed" do
-    pid = spawn(fn ->
-      Memoize.Cache.get_or_run(:key, fn -> :erlang.exit(self(), :normal) end)
-    end)
+    {pid, ref} =
+      spawn_monitor(fn ->
+        Memoize.Cache.get_or_run(:key, fn -> :erlang.exit(self(), :normal) end)
+      end)
 
-    Process.monitor(pid)
-    assert_receive {:DOWN, _ref, :process, ^pid, :normal}
+    assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
 
     assert 1 == Memoize.Cache.get_or_run(:key, fn -> 1 end)
   end
