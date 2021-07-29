@@ -37,17 +37,24 @@ defmodule Memoize.CacheTest do
   end
 
   test "many processes call get_or_run, but one process only calls the caching function" do
+    # default_2 (not cache) is very slow, so uses fewer processes.
+    processes =
+      case Memoize.Case.find_cache() do
+        {:ok, "default_2"} -> 10
+        _ -> 1000
+      end
+
     fun = fn ->
       assert 20 == Memoize.Cache.get_or_run(:key, fn -> cache_single(100, 20) end)
     end
 
     ps =
-      for _ <- 1..1000, into: %{} do
+      for _ <- 1..processes, into: %{} do
         {pid, ref} = Process.spawn(fun, [:monitor])
         {pid, ref}
       end
 
-    for _ <- 1..1000 do
+    for _ <- 1..processes do
       receive do
         {:DOWN, ref, :process, pid, reason} ->
           assert ps[pid] == ref
@@ -71,6 +78,13 @@ defmodule Memoize.CacheTest do
   end
 
   test "if caching process is crashed when waiting many processes, one of the processes call the caching function" do
+    # default_2 (not cache) is very slow, so uses fewer processes.
+    processes =
+      case Memoize.Case.find_cache() do
+        {:ok, "default_2"} -> 10
+        _ -> 1000
+      end
+
     fun1 = fn ->
       assert_raise(RuntimeError, "failed", fn ->
         Memoize.Cache.get_or_run(:key, fn -> cache_raise(100, 20) end)
@@ -82,7 +96,7 @@ defmodule Memoize.CacheTest do
     end
 
     ps =
-      for n <- 1..1000, into: %{} do
+      for n <- 1..processes, into: %{} do
         # raise an exception at first call
         if n == 1 do
           {pid, ref} = Process.spawn(fun1, [:monitor])
@@ -94,7 +108,7 @@ defmodule Memoize.CacheTest do
         end
       end
 
-    for _ <- 1..1000 do
+    for _ <- 1..processes do
       receive do
         {:DOWN, ref, :process, pid, reason} ->
           assert ps[pid] == ref

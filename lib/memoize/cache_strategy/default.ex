@@ -7,6 +7,15 @@ defmodule Memoize.CacheStrategy.Default do
 
   def init(opts) do
     :ets.new(@ets_tab, [:public, :set, :named_table, {:read_concurrency, true}])
+
+    # Default global settings
+    #
+    # config :memoize, Memoize.CacheStrategy.Default,
+    #   expires_in: 1000
+    expires_in =
+      Application.get_env(:memoize, __MODULE__, []) |> Keyword.get(:expires_in, :infinity)
+
+    opts = Keyword.put(opts, :expires_in, expires_in)
     opts
   end
 
@@ -15,7 +24,7 @@ defmodule Memoize.CacheStrategy.Default do
   end
 
   def cache(_key, _value, opts) do
-    expires_in = Keyword.get(opts, :expires_in, :infinity)
+    expires_in = Keyword.get(opts, :expires_in, Memoize.Config.opts().expires_in)
 
     expired_at =
       case expires_in do

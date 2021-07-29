@@ -1,7 +1,9 @@
 defmodule Memoize.Case do
   use ExUnit.CaseTemplate
 
-  defp find_cache(config) do
+  def find_cache() do
+    config = ExUnit.configuration()
+
     case Keyword.fetch(config, :include) do
       :error ->
         :error
@@ -32,11 +34,20 @@ defmodule Memoize.Case do
   end
 
   setup_all do
-    config = ExUnit.configuration()
-
-    case find_cache(config) do
+    case find_cache() do
       {:ok, "default"} ->
         :ok
+
+      {:ok, "default_2"} ->
+        # no cache mode
+        put_envs(:memoize,
+          cache_strategy: Memoize.CacheStrategy.Default,
+          "Elixir.Memoize.CacheStrategy.Default": [
+            expires_in: 0
+          ]
+        )
+
+        restart(:memoize)
 
       {:ok, "eviction"} ->
         put_envs(:memoize,

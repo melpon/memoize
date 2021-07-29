@@ -157,6 +157,16 @@ The cached value is invalidated in the first `get_config/0` function call after 
 
 To collect expired values, you can use `garbage_collect/0`. It collects all expired values. Its complexity is linear.
 
+The default value of `:expires_in` is configurable as below:
+
+```elixir
+config :memoize,
+  cache_strategy: Memoize.CacheStrategy.Default
+
+config :memoize, Memoize.CacheStrategy.Default,
+  expires_in: 600_000 # 10 minutes
+```
+
 ## Cache Strategy - Memoize.CacheStrategy.Eviction
 
 `Memoize.CacheStrategy.Eviction` is one of caching strategy.

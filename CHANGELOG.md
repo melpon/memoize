@@ -2,6 +2,7 @@
 
 ## develop
 
+- Add the default value of `:expires_in` configurable.
 - Remove compile-time config.
 
 ## 1.3.3 2021-02-03

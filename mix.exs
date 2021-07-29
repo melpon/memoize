@@ -54,61 +54,29 @@ defmodule Memoize.Mixfile do
     ]
   end
 
+  @tests [
+    :"test.default",
+    :"test.default_2",
+    :"test.eviction",
+    :"test.eviction_2",
+    :"test.waiter"
+  ]
+
   defp aliases() do
-    [
-      "test.all": ["test.default", "test.eviction", "test.eviction_2", "test.waiter"],
-      "test.default": &test_default/1,
-      "test.eviction": &test_eviction/1,
-      "test.eviction_2": &test_eviction_2/1,
-      "test.waiter": &test_waiter/1
-    ]
+    tests_fn = @tests |> Enum.map(fn test -> {test, &do_test(test, &1)} end)
+    tests_str = @tests |> Enum.map(&Atom.to_string/1)
+    ["test.all": tests_str] ++ tests_fn
   end
 
   defp preferred_cli_env() do
-    [
-      "test.all": :test,
-      "test.default": :test,
-      "test.eviction": :test,
-      "test.eviction_2": :test,
-      "test.waiter": :test
-    ]
+    @tests |> Enum.map(&{&1, :test})
   end
 
-  defp test_default(args) do
-    mix_cmd_with_status_check(
-      ["test", ansi_option()] ++ args ++ ["--exclude", "cache", "--include", "cache:default"]
-    )
-  end
-
-  defp test_eviction(args) do
-    Application.put_env(:memoize, :cache_strategy, Memoize.CacheStrategy.Eviction)
-
-    Application.put_env(:memoize, Memoize.CacheStrategy.Eviction,
-      min_threshold: 90000,
-      max_threshold: 100_000
-    )
+  defp do_test(name, args) do
+    tag = name |> Atom.to_string() |> String.replace("test.", "cache:")
 
     mix_cmd_with_status_check(
-      ["test", ansi_option()] ++ args ++ ["--exclude", "cache", "--include", "cache:eviction"]
-    )
-  end
-
-  defp test_eviction_2(args) do
-    Application.put_env(:memoize, :cache_strategy, Memoize.CacheStrategy.Eviction)
-    Application.put_env(:memoize, Memoize.CacheStrategy.Eviction, max_threshold: :infinity)
-
-    mix_cmd_with_status_check(
-      ["test", ansi_option()] ++ args ++ ["--exclude", "cache", "--include", "cache:eviction_2"]
-    )
-  end
-
-  defp test_waiter(args) do
-    Application.put_env(:memoize, :cache_strategy, Memoize.CacheStrategy.Default)
-    Application.put_env(:memoize, :max_waiters, 0)
-    Application.put_env(:memoize, :waiter_sleep_ms, 0)
-
-    mix_cmd_with_status_check(
-      ["test", ansi_option()] ++ args ++ ["--exclude", "cache", "--include", "cache:waiter"]
+      ["test", ansi_option()] ++ args ++ ["--exclude", "cache", "--include", tag]
     )
   end
 
