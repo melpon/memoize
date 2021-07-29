@@ -2,7 +2,7 @@ defmodule Memoize.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/melpon/memoize"
-  @version "1.3.3"
+  @version "1.4.0"
 
   def project do
     [
@@ -49,7 +49,7 @@ defmodule Memoize.Mixfile do
       extras: ["CHANGELOG.md", "README.md"],
       main: "readme",
       source_url: @source_url,
-      source_ref: "v#{@version}",
+      source_ref: "#{@version}",
       skip_undefined_reference_warnings_on: ["CHANGELOG.md", "README.md"]
     ]
   end
