@@ -231,6 +231,6 @@ defmodule Memoize do
   defdelegate garbage_collect(), to: Memoize.Cache
 
   def cache_strategy() do
-    Memoize.Application.cache_strategy()
+    Memoize.Config.cache_strategy()
   end
 end

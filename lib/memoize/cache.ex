@@ -3,12 +3,12 @@ defmodule Memoize.Cache do
   Module documentation for Memoize.Cache.
   """
 
-  @cache_strategy Memoize.Application.cache_strategy()
-  @max_waiters Application.get_env(:memoize, :max_waiters, 20)
-  @waiter_sleep_ms Application.get_env(:memoize, :waiter_sleep_ms, 200)
+  defp cache_strategy() do
+    Memoize.Config.cache_strategy()
+  end
 
   defp tab(key) do
-    @cache_strategy.tab(key)
+    cache_strategy().tab(key)
   end
 
   defp compare_and_swap(key, :nothing, value) do
@@ -111,7 +111,7 @@ defmodule Memoize.Cache do
             fun.()
           else
             result ->
-              context = @cache_strategy.cache(key, result, opts)
+              context = cache_strategy().cache(key, result, opts)
               waiter_pids = set_result_and_get_waiter_pids(key, result, context)
 
               Enum.map(waiter_pids, fn pid ->
@@ -142,7 +142,7 @@ defmodule Memoize.Cache do
 
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
-        max_waiters = Keyword.get(opts, :max_waiters, @max_waiters)
+        max_waiters = Memoize.Config.opts().max_waiters
         max_waiters = if(max_waiters <= 0, do: 1, else: max_waiters)
         waiters = length(waiter_pids)
 
@@ -182,7 +182,7 @@ defmodule Memoize.Cache do
             end
           end
         else
-          waiter_sleep_ms = Keyword.get(opts, :waiter_sleep_ms, @waiter_sleep_ms)
+          waiter_sleep_ms = Memoize.Config.opts().waiter_sleep_ms
           Process.sleep(waiter_sleep_ms)
         end
 
@@ -190,7 +190,7 @@ defmodule Memoize.Cache do
 
       # completed
       [{^key, {:completed, value, context}}] ->
-        case @cache_strategy.read(key, value, context) do
+        case cache_strategy().read(key, value, context) do
           :retry -> do_get_or_run(key, fun, opts)
           :ok -> value
         end
@@ -198,14 +198,14 @@ defmodule Memoize.Cache do
   end
 
   def invalidate() do
-    @cache_strategy.invalidate()
+    cache_strategy().invalidate()
   end
 
   def invalidate(key) do
-    @cache_strategy.invalidate(key)
+    cache_strategy().invalidate(key)
   end
 
   def garbage_collect() do
-    @cache_strategy.garbage_collect()
+    cache_strategy().garbage_collect()
   end
 end

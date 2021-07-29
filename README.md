@@ -18,7 +18,7 @@ A memoization macro for Elixir.
 ## Requirement
 
 - Elixir 1.9 or later.
-- Erlang/OTP 20 or later.
+- Erlang/OTP 21.2 or later.
 
 ## Installation
 
@@ -27,7 +27,7 @@ Add `:memoize` to your `mix.exs` dependencies:
 ```elixir
 defp deps do
   [
-    {:memoize, "~> 1.3"}
+    {:memoize, "~> 1.4"}
   ]
 end
 ```
@@ -126,8 +126,6 @@ If you want to change the caching strategy, configure `:cache_strategy` in `:mem
 config :memoize,
   cache_strategy: Memoize.CacheStrategy.Eviction
 ```
-
-WARNING: A caching strategy module is determined at *compile time*. It mean you **MUST** recompile `memoize` module when you change the caching strategy.
 
 `memoize` provides below caching strategies.
 

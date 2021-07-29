@@ -4,22 +4,21 @@ defmodule Memoize.Application do
   @behaviour Application
   @behaviour Supervisor
 
-  @cache_strategy Application.get_env(:memoize, :cache_strategy, Memoize.CacheStrategy.Default)
-
-  def start(_type, _args) do
-    Supervisor.start_link(__MODULE__, [], strategy: :one_for_one)
+  def start(_type, args) do
+    Supervisor.start_link(__MODULE__, args, strategy: :one_for_one)
   end
 
   def stop(_state) do
     :ok
   end
 
-  def init(_) do
-    @cache_strategy.init()
+  def init(args) do
+    Memoize.Config.init(args)
     Supervisor.init([], strategy: :one_for_one)
   end
 
+  @deprecated "Use Memoize.Config.cache_strategy/0 instead"
   def cache_strategy() do
-    @cache_strategy
+    Memoize.Config.cache_strategy()
   end
 end

@@ -1,5 +1,9 @@
 # Changelog
 
+## develop
+
+- Remove compile-time config.
+
 ## 1.3.3 2021-02-03
 
 - Fix infinite loop if cache process crashes ([#14](https://github.com/melpon/memoize/pull/14))
