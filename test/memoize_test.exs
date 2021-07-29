@@ -1,5 +1,5 @@
 defmodule MemoizeTest do
-  use ExUnit.Case
+  use Memoize.Case
 
   use Memoize
 
@@ -71,7 +71,7 @@ defmodule MemoizeTest do
     send(pid, :ok)
   end
 
-  @tag skip: System.get_env("MEMOIZE_TEST_MODE") != "Memoize.CacheStrategy.Default"
+  @tag cache: "default"
   test "defmemo with expire" do
     assert :ok == has_expire(self())
     assert_received :ok
