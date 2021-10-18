@@ -303,7 +303,7 @@ defmodule Memoize.CacheTest do
     # still exceeded the threshold
     assert max_threshold - 100 <= Memoize.CacheStrategy.Eviction.used_bytes()
 
-    # next inserting is occured garbage collection
+    # next inserting is occurred garbage collection
     assert 10 == Memoize.Cache.get_or_run(:gc, fn -> 10 end)
 
     used_bytes = Memoize.CacheStrategy.Eviction.used_bytes()
