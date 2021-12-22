@@ -287,7 +287,7 @@ The third argument is `context` that is created at `cache/3`.
 If `:retry` is returned, retry the lookup.
 If `:ok` is returned, return the `value`.
 
-### invalidte/{0,1}
+### invalidate/{0,1}
 
 These functions are called from `Memoize.invalidate/{0-4}`.
 
