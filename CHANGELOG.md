@@ -2,7 +2,7 @@
 
 ## develop
 
-- Update .tool-versions
+- Update dependencies
 
 ## 1.4.0 2021-07-30
 
