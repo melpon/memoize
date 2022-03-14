@@ -2,6 +2,8 @@
 
 ## develop
 
+- Update .tool-versions
+
 ## 1.4.0 2021-07-30
 
 - Add the default value of `:expires_in` configurable.
