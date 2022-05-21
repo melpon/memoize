@@ -53,8 +53,13 @@ defmodule MemoizeTest do
     Memoize.Cache.get_or_run({:mod2, :fun1, [1]}, f)
 
     assert 1 == Memoize.invalidate(:mod1, :fun1, [1])
+    assert 0 == Memoize.invalidate(:mod1, :fun1, [1])
     assert 1 == Memoize.invalidate(:mod1, :fun1)
     assert 1 == Memoize.invalidate(:mod1)
+
+    Memoize.Cache.get_or_run({:mod1, :fun1, [%{a: 1}]}, f)
+    assert 1 == Memoize.invalidate(:mod1, :fun1, [%{a: 1}])
+
     assert 1 == Memoize.invalidate()
   end
 

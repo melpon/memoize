@@ -202,6 +202,7 @@ defmodule Memoize.Cache do
   end
 
   def invalidate(key) do
+    key = normalize_key(key)
     cache_strategy().invalidate(key)
   end
 
