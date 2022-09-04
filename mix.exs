@@ -2,7 +2,7 @@ defmodule Memoize.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/melpon/memoize"
-  @version "1.4.0"
+  @version "1.4.1"
 
   def project do
     [

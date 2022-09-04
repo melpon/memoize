@@ -2,7 +2,11 @@
 
 ## develop
 
+## 1.4.1 2022-09-04
+
 - Update dependencies
+- fix: Invalidate cache with map
+    - @phanmn
 
 ## 1.4.0 2021-07-30
 
