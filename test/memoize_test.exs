@@ -15,6 +15,16 @@ defmodule MemoizeTest do
     y * z
   end
 
+  defmemo foos(x, y), persistent_term: true do
+    Process.sleep(1000)
+    x - y
+  end
+
+  test "defmemo persistent term foos" do
+    assert 27 == foos(30, 3)
+    assert 27 == foos(30, 3)
+  end
+
   test "defmemo defines foo" do
     assert 2 == foo(0, 2)
     assert 8 == foo(1, 4)

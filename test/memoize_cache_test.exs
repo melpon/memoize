@@ -182,6 +182,33 @@ defmodule Memoize.CacheTest do
   end
 
   @tag cache: "default"
+  test "persistent_term cache test" do
+    assert 10 ==
+             Memoize.Cache.get_or_run(
+               :key,
+               fn -> cache_with_call_count(:key, 100) end,
+               persistent_term: true,
+             )
+
+    assert 10 ==
+             Memoize.Cache.get_or_run(
+               :key,
+               fn -> cache_with_call_count(:key, 100) end,
+               persistent_term: true,
+             )
+
+    # # wait to expire the cache
+    Process.sleep(2200)
+
+    assert 10 ==
+             Memoize.Cache.get_or_run(
+               :key,
+               fn -> cache_with_call_count(:key, 100) end,
+               persistent_term: true
+             )
+  end
+
+  @tag cache: "default"
   test "at first call after cache is expired, new value is cached" do
     assert 10 ==
              Memoize.Cache.get_or_run(
