@@ -29,7 +29,8 @@ defmodule Memoize.CacheStrategy.Default do
     expired_at =
       case expires_in do
         :infinity -> :infinity
-        value -> System.monotonic_time(:millisecond) + value
+        value ->
+          System.monotonic_time(:millisecond) + value
       end
 
     expired_at
@@ -49,7 +50,13 @@ defmodule Memoize.CacheStrategy.Default do
   end
 
   def invalidate(key) do
-    :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
+    :persistent_term.get(key, [])
+    |> case do
+      [] ->
+        :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}}, [], [true]}])
+      _ ->
+        :persistent_term.erase(key)
+    end
   end
 
   def garbage_collect() do
