@@ -15,7 +15,7 @@ defmodule MemoizeTest do
     y * z
   end
 
-  defmemo foos(x, y), persistent_term: true do
+  defmemo foos(x, y), back_end: :persistent_term do
     Process.sleep(1000)
     x - y
   end

@@ -12,92 +12,92 @@ defmodule Memoize.Cache do
     cache_strategy().tab(key)
   end
 
-  defp compare_and_swap(key, :nothing, value, false) do
+  defp compare_and_swap(key, :nothing, value, :ets) do
     :ets.insert_new(tab(key), value)
   end
 
-  defp compare_and_swap(key, expected, :nothing, false) do
+  defp compare_and_swap(key, expected, :nothing, :ets) do
     num_deleted = :ets.select_delete(tab(key), [{expected, [], [true]}])
     num_deleted == 1
   end
 
-  defp compare_and_swap(key, expected, value, false) do
+  defp compare_and_swap(key, expected, value, :ets) do
     num_replaced = :ets.select_replace(tab(key), [{expected, [], [{:const, value}]}])
     num_replaced == 1
   end
 
   #----------------------persistent_term------------------
-  defp compare_and_swap(key, :nothing, value, true) do
+  defp compare_and_swap(key, :nothing, value, :persistent_term) do
     :persistent_term.put(key, value)
 
     true
   end
 
-  defp compare_and_swap(key, _, :nothing, true) do
+  defp compare_and_swap(key, _, :nothing, :persistent_term) do
     :persistent_term.erase(key)
   end
 
-  defp compare_and_swap(key, _, value, true) do
+  defp compare_and_swap(key, _, value, :persistent_term) do
     :persistent_term.put(key, value)
 
     true
   end
   #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  defp set_result_and_get_waiter_pids(key, result, context, false) do
+  defp set_result_and_get_waiter_pids(key, result, context, :ets) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
 
-    if compare_and_swap(key, expected, {key, {:completed, result, context}}, false) do
+    if compare_and_swap(key, expected, {key, {:completed, result, context}}, :ets) do
       waiter_pids
     else
       # retry
-      set_result_and_get_waiter_pids(key, result, context, false)
+      set_result_and_get_waiter_pids(key, result, context, :ets)
     end
   end
 
   #-------------------persistent_term------------------
-  defp set_result_and_get_waiter_pids(key, result, context, true) do
+  defp set_result_and_get_waiter_pids(key, result, context, :persistent_term) do
     runner_pid = self()
 
     :persistent_term.get(key, [])
     |> case do
       {^key, {:running, ^runner_pid, waiter_pids}} = expected ->
-        if compare_and_swap(key, expected, {key, {:completed, result, context}}, true) do
+        if compare_and_swap(key, expected, {key, {:completed, result, context}}, :persistent_term) do
           waiter_pids
         else
           # retry
-          set_result_and_get_waiter_pids(key, result, context, true)
+          set_result_and_get_waiter_pids(key, result, context, :persistent_term)
         end
       _ -> true
     end
   end
   #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  defp delete_and_get_waiter_pids(key, false) do
+  defp delete_and_get_waiter_pids(key, :ets) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
 
-    if compare_and_swap(key, expected, :nothing, false) do
+    if compare_and_swap(key, expected, :nothing, :ets) do
       waiter_pids
     else
       # retry
-      delete_and_get_waiter_pids(key, false)
+      delete_and_get_waiter_pids(key, :ets)
     end
   end
 
   #-----------------------persistent_term--------------------
-  defp delete_and_get_waiter_pids(key, true) do
+  defp delete_and_get_waiter_pids(key, :persistent_term) do
     runner_pid = self()
 
     :persistent_term.get(key, [])
     |> case do
       {:running, ^runner_pid, waiter_pids} = expected ->
-        if compare_and_swap(key, expected, :nothing, true) do
+        if compare_and_swap(key, expected, :nothing, :persistent_term) do
           waiter_pids
         else
           # retry
-          delete_and_get_waiter_pids(key, true)
+          delete_and_get_waiter_pids(key, :persistent_term)
         end
       _ -> true
       end
@@ -149,10 +149,10 @@ defmodule Memoize.Cache do
 
   def get_or_run(key, fun, opts \\ []) do
     key = normalize_key(key)
-    do_get_or_run(key, fun, opts, opts |> Keyword.get(:persistent_term, false))
+    do_get_or_run(key, fun, opts, opts |> Keyword.get(:back_end, :ets))
   end
 
-  defp do_get_or_run(key, fun, opts, false) do
+  defp do_get_or_run(key, fun, opts, :ets) do
     key = normalize_key(key)
 
     case :ets.lookup(tab(key), key) do
@@ -161,23 +161,23 @@ defmodule Memoize.Cache do
         # calc
         runner_pid = self()
 
-        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, []}}, false) do
+        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, []}}, :ets) do
           try do
             fun.()
           else
             result ->
               context = cache_strategy().cache(key, result, opts)
-              waiter_pids = set_result_and_get_waiter_pids(key, result, context, false)
+              waiter_pids = set_result_and_get_waiter_pids(key, result, context, :ets)
 
               Enum.map(waiter_pids, fn pid ->
                 send(pid, {self(), :completed})
               end)
 
-              do_get_or_run(key, fun, opts, false)
+              do_get_or_run(key, fun, opts, :ets)
           catch
             kind, error ->
               # the status should be :running
-              waiter_pids = delete_and_get_waiter_pids(key, false)
+              waiter_pids = delete_and_get_waiter_pids(key, :ets)
 
               Enum.map(waiter_pids, fn pid ->
                 send(pid, {self(), :failed})
@@ -192,7 +192,7 @@ defmodule Memoize.Cache do
               end
           end
         else
-          do_get_or_run(key, fun, opts, false)
+          do_get_or_run(key, fun, opts, :ets)
         end
 
       # running
@@ -204,7 +204,7 @@ defmodule Memoize.Cache do
         if waiters < max_waiters do
           waiter_pids = [self() | waiter_pids]
 
-          if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}, false) do
+          if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}, :ets) do
             ref = Process.monitor(runner_pid)
 
             receive do
@@ -217,7 +217,7 @@ defmodule Memoize.Cache do
               {:DOWN, ^ref, :process, ^runner_pid, _reason} ->
                 # in case the running process isn't alive anymore,
                 # it means it crashed and failed to complete
-                compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing, false)
+                compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing, :ets)
 
                 Enum.map(waiter_pids, fn pid ->
                   send(pid, {self(), :failed})
@@ -241,19 +241,19 @@ defmodule Memoize.Cache do
           Process.sleep(waiter_sleep_ms)
         end
 
-        do_get_or_run(key, fun, opts, false)
+        do_get_or_run(key, fun, opts, :ets)
 
       # completed
       [{^key, {:completed, value, context}}] ->
         case cache_strategy().read(key, value, context) do
-          :retry -> do_get_or_run(key, fun, opts, false)
+          :retry -> do_get_or_run(key, fun, opts, :ets)
           :ok -> value
         end
     end
   end
 
   #--------------------------persistent_term---------------------------------------------
-  defp do_get_or_run(key, fun, opts, true) do
+  defp do_get_or_run(key, fun, opts, :persistent_term) do
     key = normalize_key(key)
 
     case :persistent_term.get(key, []) do
@@ -262,23 +262,23 @@ defmodule Memoize.Cache do
         # calc
         runner_pid = self()
 
-        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, []}}, true) do
+        if compare_and_swap(key, :nothing, {key, {:running, runner_pid, []}}, :persistent_term) do
           try do
             fun.()
           else
             result ->
               context = cache_strategy().cache(key, result, opts)
-              waiter_pids = set_result_and_get_waiter_pids(key, result, context, true)
+              waiter_pids = set_result_and_get_waiter_pids(key, result, context, :persistent_term)
 
               Enum.map(waiter_pids, fn pid ->
                 send(pid, {self(), :completed})
               end)
 
-              do_get_or_run(key, fun, opts, true)
+              do_get_or_run(key, fun, opts, :persistent_term)
           catch
             kind, error ->
               # the status should be :running
-              waiter_pids = delete_and_get_waiter_pids(key, true)
+              waiter_pids = delete_and_get_waiter_pids(key, :persistent_term)
 
               Enum.map(waiter_pids, fn pid ->
                 send(pid, {self(), :failed})
@@ -293,7 +293,7 @@ defmodule Memoize.Cache do
               end
           end
         else
-          do_get_or_run(key, fun, opts, true)
+          do_get_or_run(key, fun, opts, :persistent_term)
         end
 
       # running
@@ -305,7 +305,7 @@ defmodule Memoize.Cache do
         if waiters < max_waiters do
           waiter_pids = [self() | waiter_pids]
 
-          if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}, true) do
+          if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}, :persistent_term) do
             ref = Process.monitor(runner_pid)
 
             receive do
@@ -318,7 +318,7 @@ defmodule Memoize.Cache do
               {:DOWN, ^ref, :process, ^runner_pid, _reason} ->
                 # in case the running process isn't alive anymore,
                 # it means it crashed and failed to complete
-                compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing, true)
+                compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing, :persistent_term)
 
                 Enum.map(waiter_pids, fn pid ->
                   send(pid, {self(), :failed})
@@ -342,13 +342,12 @@ defmodule Memoize.Cache do
           Process.sleep(waiter_sleep_ms)
         end
 
-        do_get_or_run(key, fun, opts, true)
+        do_get_or_run(key, fun, opts, :persistent_term)
 
       # completed
       {^key, {:completed, value, context}} ->
-        :persistent_term.get(key) |> inspect() |> Logger.error()
         case cache_strategy().read(key, value, context) do
-          :retry -> do_get_or_run(key, fun, opts, true)
+          :retry -> do_get_or_run(key, fun, opts, :persistent_term)
           :ok -> value
         end
     end

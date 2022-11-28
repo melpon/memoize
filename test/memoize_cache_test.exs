@@ -187,14 +187,14 @@ defmodule Memoize.CacheTest do
              Memoize.Cache.get_or_run(
                :key,
                fn -> cache_with_call_count(:key, 100) end,
-               persistent_term: true,
+               back_end: :persistent_term,
              )
 
     assert 10 ==
              Memoize.Cache.get_or_run(
                :key,
                fn -> cache_with_call_count(:key, 100) end,
-               persistent_term: true,
+               back_end: :persistent_term,
              )
 
     # # wait to expire the cache
@@ -204,7 +204,7 @@ defmodule Memoize.CacheTest do
              Memoize.Cache.get_or_run(
                :key,
                fn -> cache_with_call_count(:key, 100) end,
-               persistent_term: true
+               back_end: :persistent_term
              )
   end
 
