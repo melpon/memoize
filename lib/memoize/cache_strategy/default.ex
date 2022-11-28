@@ -46,6 +46,17 @@ defmodule Memoize.CacheStrategy.Default do
   end
 
   def invalidate() do
+    :persistent_term.get()
+    |> Enum.each(fn {key, value} ->
+      value
+      |> case do
+        {{Memoize.Cache, _, _}, {:completed, _, _}} ->
+          :persistent_term.erase(key)
+        _ ->
+          true
+      end
+    end)
+
     :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}}, [], [true]}])
   end
 
