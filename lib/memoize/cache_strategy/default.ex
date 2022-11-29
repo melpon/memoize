@@ -13,7 +13,7 @@ defmodule Memoize.CacheStrategy.Default do
     # config :memoize, Memoize.CacheStrategy.Default,
     #   expires_in: 1000
     expires_in =
-      Application.get_env(:memoize, __MODULE__, []) |> Keyword.get(:expires_in, :infinity)
+      Application.get_env(:memoize, __MODULE__, []) |> Keyword.get(:expires_in, 5000)
 
     opts = Keyword.put(opts, :expires_in, expires_in)
     opts
@@ -72,6 +72,23 @@ defmodule Memoize.CacheStrategy.Default do
 
   def garbage_collect() do
     expired_at = System.monotonic_time(:millisecond)
+
+    :persistent_term.get()
+    |> Enum.each(fn {key, value} ->
+      value
+      |> case do
+        {{Memoize.CacheStrategy.Default, _, _}, {:completed, _, to_be_expired}} ->
+          cond do
+            to_be_expired |> is_number() and to_be_expired < expired_at ->
+              :persistent_term.erase(key)
+            true ->
+              true
+          end
+
+        _ ->
+          true
+      end
+    end)
 
     :ets.select_delete(@ets_tab, [
       {{:_, {:completed, :_, :"$1"}},
