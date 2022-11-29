@@ -1,5 +1,4 @@
 defmodule Memoize.Cache do
-  require Logger
   @moduledoc """
   Module documentation for Memoize.Cache.
   """
@@ -29,18 +28,19 @@ defmodule Memoize.Cache do
   #----------------------persistent_term------------------
   defp compare_and_swap(key, :nothing, value, :persistent_term) do
     :persistent_term.put(key, value)
+    :ets.insert_new(tab(key), value |> Tuple.append(:persistent_term))
 
     true
   end
 
   defp compare_and_swap(key, _, :nothing, :persistent_term) do
+    :ets.delete(tab(key), key)
     :persistent_term.erase(key)
   end
 
   defp compare_and_swap(key, _, value, :persistent_term) do
     :persistent_term.put(key, value)
-
-    true
+    :ets.insert(tab(key), value |> Tuple.append(:persistent_term))
   end
   #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
