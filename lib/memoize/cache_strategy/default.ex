@@ -13,7 +13,7 @@ defmodule Memoize.CacheStrategy.Default do
     # config :memoize, Memoize.CacheStrategy.Default,
     #   expires_in: 1000
     expires_in =
-      Application.get_env(:memoize, __MODULE__, []) |> Keyword.get(:expires_in, 5000)
+      Application.get_env(:memoize, __MODULE__, []) |> Keyword.get(:expires_in, :infinity)
 
     opts = Keyword.put(opts, :expires_in, expires_in)
     opts
@@ -50,7 +50,7 @@ defmodule Memoize.CacheStrategy.Default do
     |> Enum.each(fn {key, value} ->
       value
       |> case do
-        {{Memoize.Cache, _, _}, {:completed, _, _}} ->
+        {_, {:completed, _, _}} ->
           :persistent_term.erase(key)
         _ ->
           true
@@ -77,7 +77,7 @@ defmodule Memoize.CacheStrategy.Default do
     |> Enum.each(fn {key, value} ->
       value
       |> case do
-        {{Memoize.CacheStrategy.Default, _, _}, {:completed, _, to_be_expired}} ->
+        {_, {:completed, _, to_be_expired}} ->
           cond do
             to_be_expired |> is_number() and to_be_expired < expired_at ->
               :persistent_term.erase(key)
