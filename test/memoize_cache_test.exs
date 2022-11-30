@@ -187,14 +187,14 @@ defmodule Memoize.CacheTest do
              Memoize.Cache.get_or_run(
                :key,
                fn -> cache_with_call_count(:key, 100) end,
-               back_end: :persistent_term,
+               back_end: :persistent_term
              )
 
     assert 10 ==
              Memoize.Cache.get_or_run(
                :key,
                fn -> cache_with_call_count(:key, 100) end,
-               back_end: :persistent_term,
+               back_end: :persistent_term
              )
 
     # # wait to expire the cache
@@ -297,6 +297,57 @@ defmodule Memoize.CacheTest do
              )
 
     assert 10 == Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end)
+  end
+
+  @tag cache: "default"
+  test "garbage_collect for pesistent_term" do
+    assert 10 ==
+             Memoize.Cache.get_or_run(
+               :key1,
+               fn -> cache_with_call_count(:key1, 100) end,
+               expires_in: 100,
+               back_end: :persistent_term
+             )
+
+    assert 10 ==
+             Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end,
+               back_end: :persistent_term
+             )
+
+    # wait to expire the cache
+    Process.sleep(120)
+    # insert new value
+    assert 10 ==
+             Memoize.Cache.get_or_run(
+               :key2,
+               fn -> cache_with_call_count(:key2, 0) end,
+               expires_in: 100,
+               back_end: :persistent_term
+             )
+
+    # :key1's value is collected
+    assert 2 == Memoize.Cache.garbage_collect()
+
+    assert 20 ==
+             Memoize.Cache.get_or_run(
+               :key1,
+               fn -> cache_with_call_count(:key1, 0) end,
+               expires_in: 100,
+               back_end: :persistent_term
+             )
+
+    assert 10 ==
+             Memoize.Cache.get_or_run(
+               :key2,
+               fn -> cache_with_call_count(:key2, 0) end,
+               expires_in: 100,
+               back_end: :persistent_term
+             )
+
+    assert 10 ==
+             Memoize.Cache.get_or_run(:key3, fn -> cache_with_call_count(:key3, 0) end,
+               back_end: :persistent_term
+             )
   end
 
   def eat_memory(threshold) do
