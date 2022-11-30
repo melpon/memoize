@@ -28,7 +28,6 @@ defmodule Memoize.Cache do
   #----------------------persistent_term------------------
   defp compare_and_swap(key, :nothing, value, :persistent_term) do
     :persistent_term.put(key, value)
-    :ets.insert_new(tab(key), value |> Tuple.append(:persistent_term))
 
     true
   end
@@ -40,7 +39,10 @@ defmodule Memoize.Cache do
 
   defp compare_and_swap(key, _, value, :persistent_term) do
     :persistent_term.put(key, value)
-    :ets.insert(tab(key), value |> Tuple.append(:persistent_term))
+
+    to_be_expired = value |> elem(1) |> elem(2)
+
+    :ets.insert(tab(key), {key, to_be_expired, :persistent_term})
   end
   #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

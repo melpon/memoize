@@ -49,7 +49,7 @@ defmodule Memoize.CacheStrategy.Default do
 
   def invalidate() do
     persistent_terms =
-      :ets.select(@ets_tab, [{{:"$1", {:completed, :_, :_}, :persistent_term}, [], [:"$1"]}])
+      :ets.select(@ets_tab, [{{:"$1", :_, :persistent_term}, [], [:"$1"]}])
       |> Enum.reduce(0, fn key, acc ->
         key
         |> :persistent_term.erase()
@@ -61,7 +61,7 @@ defmodule Memoize.CacheStrategy.Default do
         end
       end)
 
-    persistent_term_keys_ets = :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}, :persistent_term}, [], [true]}])
+    persistent_term_keys_ets = :ets.select_delete(@ets_tab, [{{:_, :_, :persistent_term}, [], [true]}])
 
     :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}}, [], [true]}])
     |> Kernel.+(persistent_terms + persistent_term_keys_ets)
@@ -74,7 +74,7 @@ defmodule Memoize.CacheStrategy.Default do
         :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
 
       _ ->
-        :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}, :persistent_term}, [], [true]}])
+        :ets.select_delete(@ets_tab, [{{key, :_, :persistent_term}, [], [true]}])
         |> Kernel.+(
           :persistent_term.erase(key)
           |> case do
@@ -92,7 +92,7 @@ defmodule Memoize.CacheStrategy.Default do
 
     persistent_terms =
       :ets.select(@ets_tab, [
-        {{:"$1", {:completed, :_, :"$2"}, :persistent_term},
+        {{:"$1", :"$2", :persistent_term},
          [{:andalso, {:"/=", :"$2", :infinity}, {:<, :"$2", {:const, expired_at}}}], [:"$1"]}
       ])
       |> Enum.reduce(0, fn key, acc ->
@@ -108,7 +108,7 @@ defmodule Memoize.CacheStrategy.Default do
 
     persistent_term_keys_ets =
       :ets.select_delete(@ets_tab, [
-        {{:_, {:completed, :_, :"$1"}, :persistent_term},
+        {{:_, :"$1", :persistent_term},
          [{:andalso, {:"/=", :"$1", :infinity}, {:<, :"$1", {:const, expired_at}}}], [true]}
       ])
 
