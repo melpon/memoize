@@ -11,7 +11,7 @@ defmodule Memoize.Cache do
     cache_strategy().tab(key)
   end
 
-  defp compare_and_swap(key, :nothing, value, :ets) do
+  defp compare_and_swap(key, :nothing, value, _) do
     :ets.insert_new(tab(key), value)
   end
 
@@ -26,21 +26,17 @@ defmodule Memoize.Cache do
   end
 
   #----------------------persistent_term------------------
-  defp compare_and_swap(key, :nothing, value, :persistent_term) do
-    :persistent_term.put(key, value)
-
-    true
-  end
-
   defp compare_and_swap(key, _, :nothing, :persistent_term) do
     :ets.delete(tab(key), key)
     :persistent_term.erase(key)
   end
 
-  defp compare_and_swap(key, _, value, :persistent_term) do
+  defp compare_and_swap(key, expected, value, :persistent_term) do
+    :ets.select_delete(tab(key), [{expected, [], [true]}])
+
     :persistent_term.put(key, value)
 
-    to_be_expired = value |> elem(1) |> elem(2)
+    {_, {:completed, _, to_be_expired}} = value
 
     :ets.insert(tab(key), {key, to_be_expired, :persistent_term})
   end
@@ -61,50 +57,28 @@ defmodule Memoize.Cache do
   #-------------------persistent_term------------------
   defp set_result_and_get_waiter_pids(key, result, context, :persistent_term) do
     runner_pid = self()
+    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
 
-    :persistent_term.get(key, [])
-    |> case do
-      {^key, {:running, ^runner_pid, waiter_pids}} = expected ->
-        if compare_and_swap(key, expected, {key, {:completed, result, context}}, :persistent_term) do
-          waiter_pids
-        else
-          # retry
-          set_result_and_get_waiter_pids(key, result, context, :persistent_term)
-        end
-      _ -> true
+    if compare_and_swap(key, expected, {key, {:completed, result, context}}, :persistent_term) do
+      waiter_pids
+    else
+      # retry
+      set_result_and_get_waiter_pids(key, result, context, :ets)
     end
   end
   #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  defp delete_and_get_waiter_pids(key, :ets) do
+  defp delete_and_get_waiter_pids(key, back_end) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
 
-    if compare_and_swap(key, expected, :nothing, :ets) do
+    if compare_and_swap(key, expected, :nothing, back_end) do
       waiter_pids
     else
       # retry
-      delete_and_get_waiter_pids(key, :ets)
+      delete_and_get_waiter_pids(key, back_end)
     end
   end
-
-  #-----------------------persistent_term--------------------
-  defp delete_and_get_waiter_pids(key, :persistent_term) do
-    runner_pid = self()
-
-    :persistent_term.get(key, [])
-    |> case do
-      {:running, ^runner_pid, waiter_pids} = expected ->
-        if compare_and_swap(key, expected, :nothing, :persistent_term) do
-          waiter_pids
-        else
-          # retry
-          delete_and_get_waiter_pids(key, :persistent_term)
-        end
-      _ -> true
-      end
-  end
-  #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   @map_type :memoize_map_type
 
