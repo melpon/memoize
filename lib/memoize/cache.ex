@@ -42,31 +42,17 @@ defmodule Memoize.Cache do
   end
   #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  defp set_result_and_get_waiter_pids(key, result, context, :ets) do
+  defp set_result_and_get_waiter_pids(key, result, context, back_end) do
     runner_pid = self()
     [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
 
-    if compare_and_swap(key, expected, {key, {:completed, result, context}}, :ets) do
+    if compare_and_swap(key, expected, {key, {:completed, result, context}}, back_end) do
       waiter_pids
     else
       # retry
-      set_result_and_get_waiter_pids(key, result, context, :ets)
+      set_result_and_get_waiter_pids(key, result, context, back_end)
     end
   end
-
-  #-------------------persistent_term------------------
-  defp set_result_and_get_waiter_pids(key, result, context, :persistent_term) do
-    runner_pid = self()
-    [{^key, {:running, ^runner_pid, waiter_pids}} = expected] = :ets.lookup(tab(key), key)
-
-    if compare_and_swap(key, expected, {key, {:completed, result, context}}, :persistent_term) do
-      waiter_pids
-    else
-      # retry
-      set_result_and_get_waiter_pids(key, result, context, :ets)
-    end
-  end
-  #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   defp delete_and_get_waiter_pids(key, back_end) do
     runner_pid = self()
