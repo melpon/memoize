@@ -28,7 +28,6 @@ defmodule Memoize.Cache do
   #----------------------persistent_term------------------
   defp compare_and_swap(key, _, :nothing, :persistent_term) do
     :ets.delete(tab(key), key)
-    :persistent_term.erase(key)
   end
 
   defp compare_and_swap(key, expected, value, :persistent_term) do
