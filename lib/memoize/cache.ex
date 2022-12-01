@@ -15,7 +15,7 @@ defmodule Memoize.Cache do
     :ets.insert_new(tab(key), value)
   end
 
-  defp compare_and_swap(key, expected, :nothing, :ets) do
+  defp compare_and_swap(key, expected, :nothing, _) do
     num_deleted = :ets.select_delete(tab(key), [{expected, [], [true]}])
     num_deleted == 1
   end
@@ -23,11 +23,6 @@ defmodule Memoize.Cache do
   defp compare_and_swap(key, expected, value, :ets) do
     num_replaced = :ets.select_replace(tab(key), [{expected, [], [{:const, value}]}])
     num_replaced == 1
-  end
-
-  #----------------------persistent_term------------------
-  defp compare_and_swap(key, _, :nothing, :persistent_term) do
-    :ets.delete(tab(key), key)
   end
 
   defp compare_and_swap(key, expected, value, :persistent_term) do
@@ -38,7 +33,6 @@ defmodule Memoize.Cache do
     num_replaced = :ets.select_replace(tab(key), [{expected, [], [{:const, {key, to_be_expired, :persistent_term}}]}])
     num_replaced == 1
   end
-  #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   defp set_result_and_get_waiter_pids(key, result, context, back_end) do
     runner_pid = self()
