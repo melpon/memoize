@@ -2,6 +2,8 @@
 
 ## develop
 
+- Update dependencies
+
 ## 1.4.1 2022-09-04
 
 - Update dependencies
