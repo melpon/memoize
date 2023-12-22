@@ -2,6 +2,11 @@
 
 ## develop
 
+## 1.4.3 2023-12-23
+
+- Update dependencies
+- Update supported Elixir version from 1.9 to 1.11
+
 ## 1.4.2 2023-06-22
 
 - Update dependencies

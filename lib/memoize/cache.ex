@@ -130,7 +130,7 @@ defmodule Memoize.Cache do
 
               error = Exception.normalize(kind, error)
 
-              if Exception.exception?(error) do
+              if is_exception(error) do
                 reraise error, __STACKTRACE__
               else
                 apply(:erlang, kind, [error])
