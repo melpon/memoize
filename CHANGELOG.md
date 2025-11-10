@@ -2,6 +2,11 @@
 
 ## develop
 
+## 1.4.4 2025-11-11
+
+- [#29](https://github.com/melpon/memoize/pull/29): Fix deadlock when `max_waiters` die
+  - Thanks [@ogomezba](https://github.com/ogomezba)
+
 ## 1.4.3 2023-12-23
 
 - Update dependencies
