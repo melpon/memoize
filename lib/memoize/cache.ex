@@ -146,44 +146,52 @@ defmodule Memoize.Cache do
         max_waiters = if(max_waiters <= 0, do: 1, else: max_waiters)
         waiters = length(waiter_pids)
 
-        if waiters < max_waiters do
-          waiter_pids = [self() | waiter_pids]
+        cond do
+          waiters < max_waiters ->
+            waiter_pids = if self() in waiter_pids, do: waiter_pids, else: [self() | waiter_pids]
 
-          if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
-            ref = Process.monitor(runner_pid)
+            if compare_and_swap(key, expected, {key, {:running, runner_pid, waiter_pids}}) do
+              ref = Process.monitor(runner_pid)
 
-            receive do
-              {^runner_pid, :completed} ->
-                :ok
+              receive do
+                {^runner_pid, :completed} ->
+                  :ok
 
-              {^runner_pid, :failed} ->
-                :ok
+                {^runner_pid, :failed} ->
+                  :ok
 
-              {:DOWN, ^ref, :process, ^runner_pid, _reason} ->
-                # in case the running process isn't alive anymore,
-                # it means it crashed and failed to complete
-                compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing)
+                {:DOWN, ^ref, :process, ^runner_pid, _reason} ->
+                  # in case the running process isn't alive anymore,
+                  # it means it crashed and failed to complete
+                  compare_and_swap(key, {key, {:running, runner_pid, waiter_pids}}, :nothing)
 
-                Enum.map(waiter_pids, fn pid ->
-                  send(pid, {self(), :failed})
-                end)
+                  Enum.each(waiter_pids, fn pid ->
+                    send(pid, {self(), :failed})
+                  end)
 
-                :ok
-            after
-              5000 -> :ok
+                  :ok
+              after
+                5000 -> :ok
+              end
+
+              Process.demonitor(ref, [:flush])
+              # flush existing messages
+              receive do
+                {^runner_pid, _} -> :ok
+              after
+                0 -> :ok
+              end
             end
 
-            Process.demonitor(ref, [:flush])
-            # flush existing messages
-            receive do
-              {^runner_pid, _} -> :ok
-            after
-              0 -> :ok
-            end
-          end
-        else
-          waiter_sleep_ms = Memoize.Config.opts().waiter_sleep_ms
-          Process.sleep(waiter_sleep_ms)
+          # It might happen that all waiters and the runner are dead. In order
+          # to avoid hanging forever in a infinite loop, we force the cleaning of
+          # the ets entry.
+          not Process.alive?(runner_pid) ->
+            compare_and_swap(key, expected, :nothing)
+
+          true ->
+            waiter_sleep_ms = Memoize.Config.opts().waiter_sleep_ms
+            Process.sleep(waiter_sleep_ms)
         end
 
         do_get_or_run(key, fun, opts)
