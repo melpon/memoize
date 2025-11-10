@@ -390,4 +390,29 @@ defmodule Memoize.CacheTest do
     Memoize.invalidate()
     assert used_bytes > Memoize.CacheStrategy.Eviction.used_bytes()
   end
+
+  @tag timeout: 2000
+  test "doesn't deadlock when runner dies with full waiter list" do
+    key = {:deadlock_test, :runner_dies}
+    max_waiters = Memoize.Config.opts().max_waiters
+
+    blocking_fun = fn -> Process.sleep(30_000) end
+
+    # Spawn runner + enough waiters to fill the list + some extra (polling)
+    processes =
+      for _ <- 1..(max_waiters + 5) do
+        spawn(fn ->
+          Memoize.Cache.get_or_run(key, blocking_fun)
+        end)
+      end
+
+    Process.sleep(100)
+
+    Enum.each(processes, &Process.exit(&1, :kill))
+
+    Process.sleep(200)
+
+    result = Memoize.Cache.get_or_run(key, fn -> :recovered end)
+    assert result == :recovered
+  end
 end
