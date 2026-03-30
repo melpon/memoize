@@ -89,12 +89,14 @@ defmodule Memoize.CacheStrategy.Eviction do
   def invalidate() do
     num_deleted = :ets.select_delete(@ets_tab, [{{:_, {:completed, :_, :_}}, [], [true]}])
     :ets.delete_all_objects(@read_history_tab)
+    :ets.delete_all_objects(@expiration_tab)
     num_deleted
   end
 
   def invalidate(key) do
     num_deleted = :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
     :ets.select_delete(@read_history_tab, [{{key, :_}, [], [true]}])
+    :ets.select_delete(@expiration_tab, [{{:_, key}, [], [true]}])
     num_deleted
   end
 
@@ -114,6 +116,7 @@ defmodule Memoize.CacheStrategy.Eviction do
           for {{key, _}, num_deleted} <- stream do
             :ets.select_delete(@ets_tab, [{{key, {:completed, :_, :_}}, [], [true]}])
             :ets.delete(@read_history_tab, key)
+            :ets.select_delete(@expiration_tab, [{{:_, key}, [], [true]}])
 
             if used_bytes() <= min_threshold() do
               throw({:break, num_deleted})
