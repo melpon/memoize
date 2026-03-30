@@ -142,7 +142,7 @@ defmodule Memoize.Cache do
 
       # running
       [{^key, {:running, runner_pid, waiter_pids}} = expected] ->
-        max_waiters = Memoize.Config.opts().max_waiters
+        max_waiters = Keyword.get(opts, :max_waiters, Memoize.Config.opts().max_waiters)
         max_waiters = if(max_waiters <= 0, do: 1, else: max_waiters)
         waiters = length(waiter_pids)
 
@@ -190,7 +190,9 @@ defmodule Memoize.Cache do
             compare_and_swap(key, expected, :nothing)
 
           true ->
-            waiter_sleep_ms = Memoize.Config.opts().waiter_sleep_ms
+            waiter_sleep_ms =
+              Keyword.get(opts, :waiter_sleep_ms, Memoize.Config.opts().waiter_sleep_ms)
+
             Process.sleep(waiter_sleep_ms)
         end
 
