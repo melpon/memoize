@@ -305,14 +305,14 @@ With `config.exs`:
 
 ```elixir
 config :memoize,
-  max_waiter: 100,
+  max_waiters: 100,
   waiter_sleep_ms: 1000
 ```
 
 With `defmemo` opts:
 
 ```elixir
-defmemo foo(), max_waiter: 100, waiter_sleep_ms: 1000 do
+defmemo foo(), max_waiters: 100, waiter_sleep_ms: 1000 do
   ...
 end
 ```
