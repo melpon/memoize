@@ -380,6 +380,44 @@ defmodule Memoize.CacheTest do
     assert 20 == Memoize.Cache.get_or_run(:key2, fn -> cache_with_call_count(:key2, 0) end)
   end
 
+  @tag cache: "eviction"
+  test "invalidate/1 clears expiration table entries" do
+    expiration_tab = Memoize.CacheStrategy.Eviction.Expiration
+
+    Memoize.Cache.get_or_run(:exp_key, fn -> 1 end, expires_in: 5_000)
+    assert :ets.select_count(expiration_tab, [{{:_, :exp_key}, [], [true]}]) == 1
+
+    Memoize.Cache.invalidate(:exp_key)
+    assert :ets.select_count(expiration_tab, [{{:_, :exp_key}, [], [true]}]) == 0
+  end
+
+  @tag cache: "eviction"
+  test "invalidate/0 clears all expiration table entries" do
+    expiration_tab = Memoize.CacheStrategy.Eviction.Expiration
+
+    Memoize.Cache.get_or_run(:exp_a, fn -> 1 end, expires_in: 5_000)
+    Memoize.Cache.get_or_run(:exp_b, fn -> 2 end, expires_in: 5_000)
+    assert :ets.info(expiration_tab, :size) >= 2
+
+    Memoize.Cache.invalidate()
+    assert :ets.info(expiration_tab, :size) == 0
+  end
+
+  @tag cache: "eviction"
+  test "garbage_collect/0 clears expiration table entries for evicted keys" do
+    expiration_tab = Memoize.CacheStrategy.Eviction.Expiration
+    opts = Application.fetch_env!(:memoize, Memoize.CacheStrategy.Eviction)
+    min_threshold = Keyword.fetch!(opts, :min_threshold)
+
+    Memoize.Cache.get_or_run(:gc_exp_key, fn -> 1 end, expires_in: 60_000)
+    assert :ets.select_count(expiration_tab, [{{:_, :gc_exp_key}, [], [true]}]) == 1
+
+    eat_memory(min_threshold)
+    Memoize.garbage_collect()
+
+    assert :ets.select_count(expiration_tab, [{{:_, :gc_exp_key}, [], [true]}]) == 0
+  end
+
   @tag cache: "eviction_2"
   test "if :max_threshold is :infinity, cached values are not collected caused by memory size" do
     eat_memory(10_000_000)
