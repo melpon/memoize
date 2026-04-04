@@ -2,6 +2,8 @@
 
 ## develop
 
+## 1.4.5 2026-04-04
+
 - [#32](https://github.com/melpon/memoize/pull/32): Fix double-calling of normalize_key
   - Thanks [@katafrakt](https://github.com/katafrakt)
 - [#31](https://github.com/melpon/memoize/pull/31): Read waiter options from defmemo opts
