@@ -2,6 +2,13 @@
 
 ## develop
 
+- [#32](https://github.com/melpon/memoize/pull/32): Fix double-calling of normalize_key
+  - Thanks [@katafrakt](https://github.com/katafrakt)
+- [#31](https://github.com/melpon/memoize/pull/31): Read waiter options from defmemo opts
+  - Thanks [@katafrakt](https://github.com/katafrakt)
+- [#30](https://github.com/melpon/memoize/pull/30): Clear expiration_tab when invalidating or garbage collecting
+  - Thanks [@katafrakt](https://github.com/katafrakt)
+
 ## 1.4.4 2025-11-11
 
 - [#29](https://github.com/melpon/memoize/pull/29): Fix deadlock when `max_waiters` die
