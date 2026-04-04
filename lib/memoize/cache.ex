@@ -98,8 +98,6 @@ defmodule Memoize.Cache do
   end
 
   defp do_get_or_run(key, fun, opts) do
-    key = normalize_key(key)
-
     case :ets.lookup(tab(key), key) do
       # not started
       [] ->
